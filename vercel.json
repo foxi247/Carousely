@@ -1,0 +1,13 @@
+{
+  "rewrites": [
+    { "source": "/api/mistral", "destination": "/api/mistral" },
+    { "source": "/v1/chat/completions", "destination": "/api/mistral" },
+    { "source": "/api/leonardo/init-image", "destination": "/api/leonardo-init-image" },
+    { "source": "/api/leonardo/generations", "destination": "/api/leonardo-generations" },
+    { "source": "/api/leonardo/generations/:id", "destination": "/api/leonardo-poll?id=:id" },
+    { "source": "/proxy-image", "destination": "/api/proxy-image" },
+    { "source": "/", "destination": "/carousely-v26.html" },
+    { "source": "/profile", "destination": "/carousely-profile.html" },
+    { "source": "/admin", "destination": "/carousely-admin.html" }
+  ]
+}
