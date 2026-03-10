@@ -2271,7 +2271,7 @@ async function generateAiStyle() {
   "accentHint": "цвет акцента в hex (например #e8ff47)"
 }`;
 
-    const resp = await fetch('http://localhost:3001/v1/chat/completions', {
+    const resp = await fetch('/api/mistral', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({ model:'mistral-small-latest', max_tokens:300, temperature:0.8,
@@ -2320,7 +2320,7 @@ async function callMistral(apiKey, topic, audience, language, tone, count, extra
 
 Все тексты слайдов и caption на ${langName} языке. bg_prompt всегда на английском.`;
 
-  const resp = await fetch('http://localhost:3001/v1/chat/completions', {
+  const resp = await fetch('/api/mistral', {
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({ model:'mistral-small-latest', max_tokens:2000, temperature:0.75,
@@ -2363,7 +2363,7 @@ async function loadImageFromUrl(url) {
   });
   try { return await tryLoad(url); }
   catch {
-    try { return await tryLoad(`http://localhost:3001/proxy-image?url=${encodeURIComponent(url)}`); }
+    try { return await tryLoad(`/proxy-image?url=${encodeURIComponent(url)}`); }
     catch { throw new Error('Не удалось загрузить изображение (CORS). Убедись что proxy.js запущен.'); }
   }
 }
@@ -3446,7 +3446,7 @@ async function generateLeonardoImage(apiKey, prompt, style, width, height, perso
   if(personaBase64){
     try{
       console.log('📸 Начинаю загрузку персонажа...');
-      const upR=await fetch('http://localhost:3001/api/leonardo/init-image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({extension:'jpg'})});
+      const upR=await fetch('/api/leonardo/init-image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({extension:'jpg'})});
       if(upR.ok){
         const ud=await upR.json();
         console.log('✓ S3 URL получен:', ud.uploadInitImage?.id);
@@ -3473,7 +3473,7 @@ async function generateLeonardoImage(apiKey, prompt, style, width, height, perso
   }
 
   console.log('📤 Отправляю в Leonardo:', {prompt: finalPrompt.slice(0,50), init_image_id: body.init_image_id, init_strength: body.init_strength});
-  const resp=await fetch('http://localhost:3001/api/leonardo/generations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const resp=await fetch('/api/leonardo/generations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   if(!resp.ok){
     const err=await resp.json().catch(()=>({}));
     console.error('✕ AI ошибка:', err);
@@ -3490,7 +3490,7 @@ async function pollLeonardo(apiKey,generationId){
   if(!generationId)throw new Error('Нет generationId');
   for(let i=0;i<24;i++){
     await delay(3000);
-    const r=await fetch(`http://localhost:3001/api/leonardo/generations/${generationId}`);
+    const r=await fetch(`/api/leonardo/generations/${generationId}`);
     if(!r.ok)continue;
     const d=await r.json();
     const g=d.generations_by_pk;
