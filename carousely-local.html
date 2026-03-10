@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Carousely — AI Carousel Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f2efe9; --surface: #fff; --surface2: #ebe8e2;
+  --border: #ddd9d2; --ink: #111; --ink2: #555; --ink3: #999;
+  --accent: #f55036; --accent-bg: #fff1ee;
+  --green: #1a7a4a; --green-bg: #e8f5ee;
+  --r: 14px; --r-sm: 9px;
+}
+body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--ink); min-height: 100vh; font-size: 14px; line-height: 1.6; }
+
+/* TOPBAR */
+.topbar { height: 60px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 32px; gap: 12px; position: sticky; top: 0; z-index: 100; }
+.brand { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 18px; letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px; }
+.brand-dot { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; }
+.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.groq-badge { font-size: 11px; font-weight: 700; padding: 4px 10px; background: #f0fdf4; color: #15803d; border-radius: 100px; border: 1px solid #bbf7d0; }
+
+/* LAYOUT */
+.app { display: grid; grid-template-columns: 360px 1fr; min-height: calc(100vh - 60px); }
+
+/* SIDEBAR */
+.sidebar { background: var(--surface); border-right: 1px solid var(--border); padding: 24px 22px; overflow-y: auto; max-height: calc(100vh - 60px); position: sticky; top: 60px; display: flex; flex-direction: column; gap: 18px; }
+.s-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--ink3); margin-bottom: 6px; display: block; }
+.s-field { display: flex; flex-direction: column; }
+
+input[type="text"], input[type="password"], textarea, select {
+  width: 100%; padding: 10px 13px; background: var(--bg); border: 1.5px solid var(--border);
+  border-radius: var(--r-sm); font-size: 13px; font-family: 'Inter', sans-serif; color: var(--ink);
+  outline: none; transition: border-color 0.15s, background 0.15s; appearance: none;
+}
+input:focus, textarea:focus, select:focus { border-color: var(--ink); background: #fff; }
+select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; cursor: pointer; }
+
+/* STYLE GRID */
+.style-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.style-btn { position: relative; cursor: pointer; border-radius: var(--r-sm); overflow: hidden; border: 2px solid transparent; transition: all 0.15s; aspect-ratio: 1.3; }
+.style-btn input { position: absolute; opacity: 0; width: 0; height: 0; }
+.style-btn:has(input:checked) { border-color: var(--ink); box-shadow: 0 4px 14px rgba(0,0,0,0.13); transform: scale(1.04); }
+.style-swatch { width: 100%; height: 100%; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 6px; font-size: 10px; font-weight: 700; }
+
+/* COUNT */
+.count-ctrl { display: flex; align-items: center; background: var(--bg); border: 1.5px solid var(--border); border-radius: var(--r-sm); overflow: hidden; width: fit-content; }
+.count-btn { width: 38px; height: 38px; background: none; border: none; font-size: 20px; cursor: pointer; color: var(--ink2); transition: background 0.1s; display: flex; align-items: center; justify-content: center; line-height: 1; }
+.count-btn:hover { background: var(--border); color: var(--ink); }
+.count-val { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 19px; min-width: 42px; text-align: center; border-left: 1.5px solid var(--border); border-right: 1.5px solid var(--border); height: 38px; display: flex; align-items: center; justify-content: center; }
+
+/* API KEY ROW */
+.api-row { display: flex; gap: 6px; }
+.api-row input { flex: 1; font-family: monospace; font-size: 12px; }
+.eye-btn { padding: 0 11px; background: var(--bg); border: 1.5px solid var(--border); border-radius: var(--r-sm); cursor: pointer; font-size: 15px; color: var(--ink3); transition: all 0.15s; }
+.eye-btn:hover { border-color: var(--ink); }
+.api-note { font-size: 11px; color: var(--ink3); line-height: 1.55; padding: 8px 10px; background: var(--surface2); border-radius: var(--r-sm); margin-top: 6px; }
+.api-note a { color: var(--accent); text-decoration: none; font-weight: 600; }
+.api-status { font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: var(--r-sm); display: none; margin-top: 5px; }
+.api-status.ok { background: var(--green-bg); color: var(--green); display: block; }
+.api-status.err { background: #ffeaea; color: #c0392b; display: block; }
+
+/* GEN BTN */
+.gen-btn { width: 100%; padding: 14px; background: var(--ink); color: #fff; border: none; border-radius: var(--r-sm); font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 4px; }
+.gen-btn:hover:not(:disabled) { background: #333; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,0,0,0.13); }
+.gen-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+/* MAIN */
+.main { padding: 24px 28px; display: flex; flex-direction: column; gap: 20px; }
+
+/* STATUS */
+.status-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 100px; font-size: 12px; font-weight: 600; }
+.pill-idle { background: var(--surface2); color: var(--ink3); }
+.pill-loading { background: #fff8e8; color: #a07020; border: 1px solid #ffe0a0; }
+.pill-done { background: var(--green-bg); color: var(--green); border: 1px solid #b8e8cc; }
+.pill-error { background: #ffeaea; color: #c0392b; border: 1px solid #ffb8b8; }
+.pulse { animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+
+.export-btn { display: flex; align-items: center; gap: 6px; padding: 8px 16px; background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--r-sm); font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s; color: var(--ink); font-family: 'Inter', sans-serif; }
+.export-btn:hover:not(:disabled) { border-color: var(--ink); }
+.export-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* PIPELINE */
+.pipeline { display: flex; gap: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 14px 18px; align-items: center; flex-wrap: wrap; }
+.pipe-step { display: flex; align-items: center; gap: 7px; flex: 1; min-width: 80px; }
+.pipe-icon { width: 30px; height: 30px; border-radius: 8px; background: var(--surface2); display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; transition: all 0.3s; }
+.pipe-icon.active { background: var(--accent-bg); box-shadow: 0 0 0 2px var(--accent); }
+.pipe-icon.done { background: var(--green-bg); }
+.pipe-name { font-size: 11px; font-weight: 700; color: var(--ink); }
+.pipe-sub { font-size: 10px; color: var(--ink3); }
+.pipe-arr { color: var(--border); font-size: 13px; flex-shrink: 0; }
+
+/* ERROR */
+.error-box { padding: 12px 16px; background: #ffeaea; border: 1px solid #ffb8b8; border-radius: var(--r-sm); font-size: 13px; color: #c0392b; line-height: 1.6; }
+
+/* EMPTY */
+.empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; padding: 60px 20px; min-height: 360px; color: var(--ink3); }
+.empty-icon { font-size: 48px; opacity: 0.2; }
+.empty h3 { font-family: 'Syne', sans-serif; font-size: 17px; font-weight: 700; color: #bbb; }
+.empty p { font-size: 13px; max-width: 300px; line-height: 1.7; }
+
+/* SLIDES */
+.slides-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; }
+.slide-card { display: flex; flex-direction: column; gap: 7px; animation: fadeUp 0.3s ease both; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+.slide-card-head { display: flex; align-items: center; justify-content: space-between; padding: 0 2px; }
+.slide-num-lbl { font-size: 11px; font-weight: 700; color: var(--ink3); font-family: 'Syne', sans-serif; }
+.type-chip { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 2px 8px; border-radius: 100px; }
+.chip-hook { background: #fff1ee; color: var(--accent); }
+.chip-content { background: #eef2ff; color: #4563e0; }
+.chip-summary { background: var(--green-bg); color: var(--green); }
+.chip-cta { background: #f5f0ff; color: #7c3aed; }
+
+canvas.slide-preview { width: 100%; aspect-ratio: 1; border-radius: 10px; display: block; cursor: pointer; border: 1.5px solid var(--border); transition: all 0.2s; }
+canvas.slide-preview:hover { transform: scale(1.025); box-shadow: 0 8px 28px rgba(0,0,0,0.1); border-color: var(--ink); }
+
+.slide-dl { width: 100%; padding: 7px; background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--r-sm); font-size: 12px; font-weight: 600; cursor: pointer; color: var(--ink2); transition: all 0.15s; font-family: 'Inter', sans-serif; display: flex; align-items: center; justify-content: center; gap: 5px; }
+.slide-dl:hover { border-color: var(--ink); color: var(--ink); }
+
+.spin { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.25); border-top-color: #fff; border-radius: 50%; animation: spin 0.65s linear infinite; display: inline-block; }
+@keyframes spin { to{transform:rotate(360deg)} }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><div class="brand-dot"></div>Carousely</div>
+  <div class="topbar-right">
+    <span class="groq-badge">🟠 Mistral + прокси</span>
+  </div>
+</div>
+
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+
+    <div class="s-field">
+      <span class="s-label">Тема карусели</span>
+      <input type="text" id="topic" value="5 привычек продуктивных людей" placeholder="О чём карусель?" />
+    </div>
+
+    <div class="s-field">
+      <span class="s-label">Целевая аудитория</span>
+      <input type="text" id="audience" value="фрилансеры и предприниматели" placeholder="Для кого?" />
+    </div>
+
+    <div class="s-field">
+      <span class="s-label">Язык</span>
+      <select id="language">
+        <option value="ru">🇷🇺 Русский</option>
+        <option value="en">🇬🇧 English</option>
+      </select>
+    </div>
+
+    <div class="s-field">
+      <span class="s-label">Тон</span>
+      <select id="tone">
+        <option value="friendly">😊 Дружелюбный</option>
+        <option value="expert">🎓 Экспертный</option>
+        <option value="bold">🔥 Дерзкий</option>
+        <option value="minimal">◾ Минималистичный</option>
+      </select>
+    </div>
+
+    <div class="s-field">
+      <span class="s-label">Количество слайдов</span>
+      <div class="count-ctrl">
+        <button class="count-btn" onclick="changeCount(-1)">−</button>
+        <div class="count-val" id="countVal">5</div>
+        <button class="count-btn" onclick="changeCount(1)">+</button>
+      </div>
+    </div>
+
+    <div class="s-field">
+      <span class="s-label">Визуальный стиль</span>
+      <div class="style-grid">
+        <label class="style-btn"><input type="radio" name="vstyle" value="dark" checked>
+          <div class="style-swatch" style="background:linear-gradient(135deg,#0f0f1a,#1e1e3a);color:rgba(255,255,255,0.8)">Dark</div></label>
+        <label class="style-btn"><input type="radio" name="vstyle" value="light">
+          <div class="style-swatch" style="background:linear-gradient(135deg,#f7f4ef,#e8e4dc);color:#333">Light</div></label>
+        <label class="style-btn"><input type="radio" name="vstyle" value="bold">
+          <div class="style-swatch" style="background:linear-gradient(135deg,#f55036,#ff8c42);color:#fff">Bold</div></label>
+        <label class="style-btn"><input type="radio" name="vstyle" value="neon">
+          <div class="style-swatch" style="background:linear-gradient(135deg,#0d0d1a,#1a0533);color:#a855f7">Neon</div></label>
+        <label class="style-btn"><input type="radio" name="vstyle" value="nature">
+          <div class="style-swatch" style="background:linear-gradient(135deg,#1a3a2a,#2d5a3d);color:#7fcea0">Nature</div></label>
+        <label class="style-btn"><input type="radio" name="vstyle" value="paper">
+          <div class="style-swatch" style="background:linear-gradient(135deg,#fdf6e3,#f5e6c8);color:#5c4a1e">Paper</div></label>
+      </div>
+    </div>
+
+    <div class="s-field">
+      <span class="s-label">Groq API Key</span>
+      <div class="api-row">
+        <input type="password" id="apiKey" placeholder="Вставь ключ от Mistral..." />
+        <button class="eye-btn" onclick="toggleKey()">👁</button>
+      </div>
+      <div id="apiStatus" class="api-status"></div>
+      <div class="api-note">
+        Получить бесплатно → <a href="https://console.mistral.ai/api-keys" target="_blank">console.mistral.ai/api-keys</a><br>
+        Запросы идут через локальный прокси (proxy.js). Ключ никуда не сохраняется.
+      </div>
+    </div>
+
+    <button class="gen-btn" id="genBtn" onclick="handleGenerate()">
+      ✦ Сгенерировать
+    </button>
+
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <div class="status-bar">
+      <div class="status-pill pill-idle" id="statusPill">
+        <span>○</span> Ожидание
+      </div>
+      <span id="statusSub" style="font-size:12px;color:var(--ink3)"></span>
+      <button class="export-btn" id="exportBtn" onclick="exportAll()" disabled>
+        ⬇ Скачать все PNG
+      </button>
+    </div>
+
+    <!-- Pipeline -->
+    <div class="pipeline">
+      <div class="pipe-step">
+        <div class="pipe-icon" id="p0">📝</div>
+        <div><div class="pipe-name">Форма</div><div class="pipe-sub">Ввод данных</div></div>
+      </div>
+      <div class="pipe-arr">→</div>
+      <div class="pipe-step">
+        <div class="pipe-icon" id="p1">⚡</div>
+        <div><div class="pipe-name">Mistral AI</div><div class="pipe-sub">mistral-small-latest</div></div>
+      </div>
+      <div class="pipe-arr">→</div>
+      <div class="pipe-step">
+        <div class="pipe-icon" id="p2">🎨</div>
+        <div><div class="pipe-name">Canvas</div><div class="pipe-sub">Рендер PNG</div></div>
+      </div>
+      <div class="pipe-arr">→</div>
+      <div class="pipe-step">
+        <div class="pipe-icon" id="p3">📦</div>
+        <div><div class="pipe-name">Экспорт</div><div class="pipe-sub">1080×1080px</div></div>
+      </div>
+    </div>
+
+    <!-- Error -->
+    <div id="errBox" class="error-box" style="display:none"></div>
+
+    <!-- Empty -->
+    <div class="empty" id="emptyState">
+      <div class="empty-icon">🎠</div>
+      <h3>Слайды появятся здесь</h3>
+      <p>Вставь Groq API ключ, введи тему и нажми «Сгенерировать». Groq бесплатный и очень быстрый.</p>
+    </div>
+
+    <!-- Slides -->
+    <div class="slides-grid" id="slidesGrid" style="display:none"></div>
+
+  </div>
+</div>
+
+<script>
+let slideCount = 5;
+let generatedSlides = [];
+
+function changeCount(d) {
+  slideCount = Math.max(3, Math.min(10, slideCount + d));
+  document.getElementById('countVal').textContent = slideCount;
+}
+
+function toggleKey() {
+  const inp = document.getElementById('apiKey');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+// ── PIPELINE UI ───────────────────────────────────────────────────
+function setPipe(step) {
+  for (let i = 0; i <= 3; i++) {
+    const el = document.getElementById('p' + i);
+    el.className = 'pipe-icon' + (i < step ? ' done' : i === step ? ' active' : '');
+  }
+}
+
+function setStatus(type, sub = '') {
+  const pill = document.getElementById('statusPill');
+  const icons = { idle:'○', loading:'◉', done:'✓', error:'✕' };
+  const labels = { idle:'Ожидание', loading:'Генерация…', done:'Готово', error:'Ошибка' };
+  pill.className = 'status-pill pill-' + type;
+  pill.innerHTML = `<span class="${type==='loading'?'pulse':''}">${icons[type]}</span> ${labels[type]}`;
+  document.getElementById('statusSub').textContent = sub;
+}
+
+// ── MISTRAL API ─────────────────────────────────────────────────
+async function callMistral(apiKey, topic, audience, language, tone, count) {
+  const langName = language === 'ru' ? 'русском' : 'английском';
+  const toneMap = { friendly:'дружелюбный и тёплый', expert:'экспертный и авторитетный', bold:'дерзкий и прямой', minimal:'минималистичный и краткий' };
+  const toneDesc = toneMap[tone] || 'дружелюбный';
+
+  const lastSlide = count;
+  const prompt = `Ты генератор контента для Instagram карусели. Создай карусель из ${count} слайдов.
+
+Тема: "${topic}"
+Аудитория: ${audience}
+Язык: ${langName}
+Тон: ${toneDesc}
+
+Структура:
+- Слайд 1: type = "hook" (цепляющий заголовок, интрига)
+- Слайды 2-${count-1}: type = "content" (конкретные советы/идеи, каждый о новом)
+- Слайд ${lastSlide}: type = "cta" (призыв подписаться/сохранить)
+
+Верни ТОЛЬКО JSON массив без пояснений:
+[{"position":1,"type":"hook","title":"короткий заголовок макс 7 слов","body":"подзаголовок макс 18 слов","accent":"акцент 1-4 слова"}]
+
+Правила:
+- title: короткий, сильный, интригующий
+- body: конкретный, полезный текст
+- accent: число/эмодзи/короткая фраза для визуального акцента
+- Все тексты строго на ${langName} языке
+- Каждый слайд контента про отдельный совет/идею`;
+
+  const resp = await fetch('http://localhost:3001/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: 'mistral-small-latest',
+      max_tokens: 1500,
+      temperature: 0.7,
+      messages: [
+        { role: 'system', content: 'Ты генератор Instagram контента. Отвечай ТОЛЬКО валидным JSON без markdown и пояснений.' },
+        { role: 'user', content: prompt }
+      ]
+    })
+  });
+
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    const msg = err?.error?.message || `HTTP ${resp.status}`;
+    throw new Error(msg);
+  }
+
+  const data = await resp.json();
+  const raw = data.choices[0].message.content.trim();
+  const cleaned = raw.replace(/^```json?\s*/i,'').replace(/\s*```$/,'').trim();
+
+  let slides;
+  try {
+    slides = JSON.parse(cleaned);
+  } catch(e) {
+    // Try to extract JSON array from text
+    const match = cleaned.match(/\[[\s\S]*\]/);
+    if (match) slides = JSON.parse(match[0]);
+    else throw new Error('Mistral вернул невалидный JSON. Попробуй ещё раз.');
+  }
+
+  return slides;
+}
+
+// ── MOCK FALLBACK ─────────────────────────────────────────────────
+function mockSlides(topic, audience, count, language) {
+  const isRu = language === 'ru';
+  const tips = isRu
+    ? ['Начни с главного', 'Блокируй время', 'Убери отвлекалки', 'Ревью каждый вечер', 'Энергия > время', 'Один приоритет', 'Системы не цели']
+    : ['Start with the most important', 'Block your time', 'Remove distractions', 'Evening review', 'Energy > time', 'One priority', 'Systems not goals'];
+
+  return Array.from({ length: count }, (_, i) => {
+    const type = i === 0 ? 'hook' : i === count-1 ? 'cta' : 'content';
+    const pos = i + 1;
+    if (type === 'hook') return { position: pos, total: count, type, title: topic, body: isRu ? `Всё что нужно знать ${audience}` : `Everything ${audience} need`, accent: isRu ? '→ читай' : '→ read on' };
+    if (type === 'cta')  return { position: pos, total: count, type, title: isRu ? 'Сохрани и поделись' : 'Save & Share', body: isRu ? 'Подпишись чтобы не потерять' : 'Follow for more', accent: '❤️' };
+    return { position: pos, total: count, type, title: `${i}. ${tips[(i-1) % tips.length]}`, body: isRu ? `Конкретный совет для ${audience}` : `Actionable tip for ${audience}`, accent: `${i * 17 + 8}%` };
+  });
+}
+
+// ── CANVAS STYLES ─────────────────────────────────────────────────
+const VSTYLES = {
+  dark: {
+    bg(ctx,W,H){
+      const g=ctx.createLinearGradient(0,0,W,H); g.addColorStop(0,'#0f0f1a'); g.addColorStop(1,'#1a1a30');
+      ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+      ctx.strokeStyle='rgba(255,255,255,0.025)'; ctx.lineWidth=1;
+      for(let x=0;x<W;x+=90){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+      for(let y=0;y<H;y+=90){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+    },
+    accent:'#e8ff47', title:'#fff', body:'rgba(255,255,255,0.7)', sub:'rgba(255,255,255,0.28)', at:'#000',
+  },
+  light: {
+    bg(ctx,W,H){
+      ctx.fillStyle='#f7f4ef'; ctx.fillRect(0,0,W,H);
+      ctx.fillStyle='rgba(0,0,0,0.012)';
+      for(let i=0;i<500;i++){ctx.beginPath();ctx.arc(Math.random()*W,Math.random()*H,Math.random()*1.4+0.3,0,Math.PI*2);ctx.fill();}
+    },
+    accent:'#111', title:'#111', body:'rgba(0,0,0,0.6)', sub:'rgba(0,0,0,0.3)', at:'#fff',
+  },
+  bold: {
+    bg(ctx,W,H){
+      const g=ctx.createLinearGradient(0,0,W,H); g.addColorStop(0,'#f55036'); g.addColorStop(1,'#ff8c42');
+      ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+      ctx.fillStyle='rgba(255,255,255,0.06)'; ctx.save(); ctx.rotate(-0.42);
+      for(let x=-H;x<W+H;x+=110){ctx.fillRect(x,-H,55,H*3);}
+      ctx.restore();
+    },
+    accent:'#fff', title:'#fff', body:'rgba(255,255,255,0.88)', sub:'rgba(255,255,255,0.5)', at:'#f55036',
+  },
+  neon: {
+    bg(ctx,W,H){
+      const g=ctx.createRadialGradient(W*.35,H*.3,0,W*.5,H*.5,W);
+      g.addColorStop(0,'#1a0533'); g.addColorStop(0.55,'#0d0d1a'); g.addColorStop(1,'#000010');
+      ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+      const gl=ctx.createRadialGradient(W*.75,H*.2,0,W*.75,H*.2,W*.4);
+      gl.addColorStop(0,'rgba(168,85,247,0.2)'); gl.addColorStop(1,'transparent');
+      ctx.fillStyle=gl; ctx.fillRect(0,0,W,H);
+    },
+    accent:'#a855f7', title:'#fff', body:'rgba(255,255,255,0.65)', sub:'rgba(168,85,247,0.55)', at:'#fff',
+  },
+  nature: {
+    bg(ctx,W,H){
+      const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#1a3a2a'); g.addColorStop(1,'#0d2218');
+      ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+      ctx.strokeStyle='rgba(127,206,160,0.07)'; ctx.lineWidth=2;
+      for(let i=0;i<8;i++){ctx.beginPath();ctx.arc(W*.5,H*1.3,180+i*75,0,Math.PI*2);ctx.stroke();}
+    },
+    accent:'#7fcea0', title:'#fff', body:'rgba(255,255,255,0.68)', sub:'rgba(127,206,160,0.48)', at:'#1a3a2a',
+  },
+  paper: {
+    bg(ctx,W,H){
+      const g=ctx.createLinearGradient(0,0,W,H); g.addColorStop(0,'#fdf6e3'); g.addColorStop(1,'#f0e2c0');
+      ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+      ctx.strokeStyle='rgba(92,74,30,0.07)'; ctx.lineWidth=1;
+      for(let y=0;y<H;y+=60){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+    },
+    accent:'#5c4a1e', title:'#2c1f0a', body:'rgba(44,31,10,0.68)', sub:'rgba(92,74,30,0.38)', at:'#fdf6e3',
+  },
+};
+
+// ── CANVAS RENDERER ───────────────────────────────────────────────
+function wrap(ctx, text, maxW) {
+  const words = String(text || '').split(' ');
+  const lines = []; let cur = '';
+  for (const w of words) {
+    const t = cur ? cur + ' ' + w : w;
+    if (ctx.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; }
+    else cur = t;
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+function renderSlide(slide, vstyle) {
+  const W = 1080, H = 1080, PAD = 86;
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+  const S = VSTYLES[vstyle] || VSTYLES.dark;
+
+  // Background
+  S.bg(ctx, W, H);
+
+  // ── Slide number
+  ctx.beginPath(); ctx.arc(PAD, PAD, 23, 0, Math.PI*2);
+  ctx.fillStyle = S.accent; ctx.fill();
+  ctx.font = 'bold 23px Inter,sans-serif';
+  ctx.fillStyle = S.at; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(slide.position, PAD, PAD);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+
+  // ── Type tag (not on hook)
+  if (slide.type !== 'hook') {
+    const tagMap = { content:'СОВЕТ', summary:'ИТОГ', cta:'ДЕЙСТВИЕ' };
+    const tag = tagMap[slide.type] || slide.type.toUpperCase();
+    ctx.font = 'bold 22px Inter,sans-serif';
+    const tw = ctx.measureText(tag).width + 28;
+    ctx.beginPath(); ctx.roundRect(PAD+46, PAD-15, tw, 32, 8);
+    ctx.fillStyle = S.accent + '30'; ctx.fill();
+    ctx.fillStyle = S.accent; ctx.textAlign = 'center';
+    ctx.fillText(tag, PAD+46+tw/2, PAD+7); ctx.textAlign = 'left';
+  }
+
+  // ── Accent line
+  ctx.fillStyle = S.accent;
+  ctx.fillRect(PAD, 172, 70, 5);
+  ctx.globalAlpha = 0.35; ctx.fillRect(PAD+82, 172, 22, 5); ctx.globalAlpha = 1;
+
+  // ── Title
+  const isHook = slide.type === 'hook';
+  const titleSize = isHook ? 88 : 74;
+  const titleLH = isHook ? 96 : 82;
+  ctx.font = `800 ${titleSize}px Syne,sans-serif`;
+  ctx.fillStyle = S.title;
+  const titleLines = wrap(ctx, slide.title || '', W - PAD*2);
+  let y = isHook ? 240 : 226;
+  titleLines.forEach(l => { ctx.fillText(l, PAD, y); y += titleLH; });
+
+  // ── Body
+  const bodyY = y + 40;
+  ctx.font = `500 ${isHook ? 42 : 38}px Inter,sans-serif`;
+  ctx.fillStyle = S.body;
+  const bodyLines = wrap(ctx, slide.body || '', W - PAD*2);
+  let by = bodyY;
+  bodyLines.forEach(l => { ctx.fillText(l, PAD, by); by += 56; });
+
+  // ── Accent badge
+  if (slide.accent) {
+    const ay = by + 38;
+    ctx.font = 'bold 30px Inter,sans-serif';
+    const aw = ctx.measureText(slide.accent).width + 40;
+    ctx.beginPath(); ctx.roundRect(PAD, ay-34, aw, 52, 26);
+    ctx.fillStyle = S.accent; ctx.fill();
+    ctx.fillStyle = S.at; ctx.textAlign = 'center';
+    ctx.fillText(slide.accent, PAD+aw/2, ay+1); ctx.textAlign = 'left';
+  }
+
+  // ── Bottom line + counter + brand
+  ctx.fillStyle = S.accent; ctx.fillRect(PAD, H-PAD-4, W-PAD*2, 3);
+  ctx.font = '600 26px Inter,sans-serif'; ctx.fillStyle = S.sub;
+  ctx.fillText(`${slide.position} / ${slide.total || slideCount}`, PAD, H-PAD+38);
+  ctx.textAlign = 'right'; ctx.fillText('@yourbrand', W-PAD, H-PAD+38); ctx.textAlign = 'left';
+
+  return cv;
+}
+
+// ── MAIN HANDLER ──────────────────────────────────────────────────
+async function handleGenerate() {
+  const topic    = document.getElementById('topic').value.trim();
+  const audience = document.getElementById('audience').value.trim();
+  const language = document.getElementById('language').value;
+  const tone     = document.getElementById('tone').value;
+  const vstyle   = document.querySelector('input[name="vstyle"]:checked').value;
+  const apiKey   = document.getElementById('apiKey').value.trim();
+  const errBox   = document.getElementById('errBox');
+  const apiSt    = document.getElementById('apiStatus');
+
+  errBox.style.display = 'none';
+  apiSt.className = 'api-status';
+
+  if (!topic)    { showErr('Введи тему карусели'); return; }
+  if (!audience) { showErr('Введи целевую аудиторию'); return; }
+
+  const btn = document.getElementById('genBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span> Генерация…';
+
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('slidesGrid').style.display = 'none';
+  document.getElementById('exportBtn').disabled = true;
+
+  setStatus('loading', 'Запускаю пайплайн…');
+  setPipe(0);
+
+  try {
+    // STEP 1 — LLM
+    setPipe(1);
+    let slides;
+
+    if (apiKey) {
+      setStatus('loading', '🟠 Mistral генерирует текст...…');
+      slides = await callMistral(apiKey, topic, audience, language, tone, slideCount);
+      slides = slides.map((s, i) => ({ ...s, position: i+1, total: slides.length }));
+      apiSt.textContent = '✓ Groq API работает'; apiSt.className = 'api-status ok';
+    } else {
+      setStatus('loading', 'Mock режим — добавь Mistral ключ для AI текста');
+      await delay(500);
+      slides = mockSlides(topic, audience, slideCount, language);
+    }
+
+    // STEP 2 — Canvas render
+    setPipe(2);
+    setStatus('loading', 'Рендерю слайды…');
+    await delay(150);
+
+    generatedSlides = [];
+    const grid = document.getElementById('slidesGrid');
+    grid.innerHTML = ''; grid.style.display = 'grid';
+
+    const typeNames = { hook:'Hook', content:'Content', summary:'Summary', cta:'CTA' };
+
+    for (let i = 0; i < slides.length; i++) {
+      const slide = slides[i];
+      const canvas = renderSlide(slide, vstyle);
+      generatedSlides.push({ canvas, slide });
+
+      const card = document.createElement('div');
+      card.className = 'slide-card';
+      card.style.animationDelay = `${i * 55}ms`;
+
+      card.innerHTML = `
+        <div class="slide-card-head">
+          <span class="slide-num-lbl">Слайд ${slide.position}</span>
+          <span class="type-chip chip-${slide.type}">${typeNames[slide.type]||slide.type}</span>
+        </div>
+      `;
+
+      const preview = document.createElement('canvas');
+      preview.className = 'slide-preview';
+      preview.width = 1080; preview.height = 1080;
+      preview.getContext('2d').drawImage(canvas, 0, 0);
+      preview.title = 'Нажми чтобы скачать PNG';
+      preview.onclick = () => dlCanvas(canvas, `slide-${slide.position}`);
+
+      const dlBtn = document.createElement('button');
+      dlBtn.className = 'slide-dl';
+      dlBtn.innerHTML = '⬇ PNG 1080×1080';
+      dlBtn.onclick = () => dlCanvas(canvas, `slide-${slide.position}`);
+
+      card.appendChild(preview);
+      card.appendChild(dlBtn);
+      grid.appendChild(card);
+      await delay(35);
+    }
+
+    // STEP 3 — Done
+    setPipe(3);
+    const mode = apiKey ? '⚡ Mistral AI' : 'Mock';
+    setStatus('done', `${slides.length} слайдов готовы · ${mode}`);
+    document.getElementById('exportBtn').disabled = false;
+
+  } catch(err) {
+    setPipe(0);
+    setStatus('error', '');
+    showErr(`Ошибка: ${err.message}`);
+    if (apiKey) {
+      apiSt.textContent = '✕ Проверь API ключ'; apiSt.className = 'api-status err';
+    }
+    document.getElementById('emptyState').style.display = 'flex';
+    document.getElementById('slidesGrid').style.display = 'none';
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '↻ Перегенерировать';
+}
+
+function showErr(msg) {
+  const b = document.getElementById('errBox');
+  b.textContent = msg; b.style.display = 'block';
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function dlCanvas(canvas, name) {
+  const a = document.createElement('a');
+  a.download = `${name}.png`;
+  a.href = canvas.toDataURL('image/png');
+  a.click();
+}
+
+async function exportAll() {
+  for (const { canvas, slide } of generatedSlides) {
+    dlCanvas(canvas, `slide-${slide.position}`);
+    await delay(100);
+  }
+}
+
+// Load mock on startup
+window.addEventListener('load', () => setTimeout(handleGenerate, 300));
+</script>
+</body>
+</html>

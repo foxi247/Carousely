@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Carousely — Админ панель</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f0ede7;--surface:#fff;--surface2:#e8e4dd;
+  --border:#d8d4cc;--ink:#111;--ink2:#555;--ink3:#999;
+  --accent:#f55036;--accent-bg:#fff1ee;
+  --green:#1a7a4a;--green-bg:#e8f5ee;
+  --r:14px;--r-sm:10px;
+  --sidebar-w:220px;
+  --shadow:0 2px 12px rgba(0,0,0,0.06);
+}
+[data-theme="dark"]{
+  --bg:#0f0f13;--surface:#1a1a22;--surface2:#22222e;
+  --border:#2e2e3e;--ink:#f0eeff;--ink2:#9090b0;--ink3:#55556a;
+  --shadow:0 2px 12px rgba(0,0,0,0.3);
+}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;font-size:14px;line-height:1.6}
+
+/* AUTH */
+.auth-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);z-index:500;display:flex;align-items:center;justify-content:center}
+.auth-card{background:var(--surface);border-radius:var(--r);padding:32px;width:100%;max-width:380px;display:flex;flex-direction:column;gap:18px;box-shadow:0 20px 60px rgba(0,0,0,0.25)}
+.auth-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:20px;text-align:center}
+.auth-badge{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:4px 14px;background:rgba(245,80,54,0.1);color:var(--accent);border-radius:100px;font-size:12px;font-weight:700;border:1px solid rgba(245,80,54,0.3);margin:0 auto}
+.auth-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--ink3)}
+.auth-input{padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-size:13px;font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);outline:none;width:100%;transition:border-color 0.15s}
+.auth-input:focus{border-color:var(--ink)}
+.auth-btn{width:100%;padding:12px;background:var(--ink);color:#fff;border:none;border-radius:var(--r-sm);font-family:'Syne',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.2s}
+.auth-btn:hover{background:#333}
+.auth-err{font-size:12px;color:#c0392b;padding:8px 12px;background:#ffeaea;border-radius:var(--r-sm);display:none}
+.auth-err.show{display:block}
+
+/* LAYOUT */
+.app{display:grid;grid-template-columns:var(--sidebar-w) 1fr;min-height:100vh}
+.topbar{grid-column:1/-1;height:54px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:12px;position:sticky;top:0;z-index:100}
+.brand{font-family:'Syne',sans-serif;font-weight:800;font-size:18px;display:flex;align-items:center;gap:8px}
+.brand-icon{width:28px;height:28px;background:var(--ink);border-radius:7px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px}
+.admin-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px;background:rgba(245,80,54,0.12);color:var(--accent);border:1px solid rgba(245,80,54,0.2)}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.btn{padding:7px 14px;border-radius:var(--r-sm);font-size:12px;font-weight:700;cursor:pointer;border:none;font-family:'Inter',sans-serif;transition:all 0.15s}
+.btn-ghost{background:var(--surface2);color:var(--ink2);border:1.5px solid var(--border)}
+.btn-ghost:hover{border-color:var(--ink);color:var(--ink)}
+.btn-primary{background:var(--ink);color:#fff}
+.btn-primary:hover{background:#333}
+.btn-sm{padding:5px 11px;font-size:11px}
+.btn-danger{background:#ffeaea;color:#c0392b;border:1.5px solid #ffb8b8}
+.btn-danger:hover{background:#ffcccc}
+.btn-success{background:var(--green-bg);color:var(--green);border:1.5px solid #b8e8cc}
+.btn-success:hover{background:#d0f0e0}
+.logout-btn{background:none;border:1.5px solid var(--border);border-radius:var(--r-sm);padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;color:var(--ink3);font-family:'Inter',sans-serif;transition:all 0.15s}
+.logout-btn:hover{border-color:#c0392b;color:#c0392b}
+
+/* SIDEBAR */
+.sidebar{background:var(--surface);border-right:1px solid var(--border);padding:16px 12px;position:sticky;top:54px;height:calc(100vh - 54px);overflow-y:auto}
+.nav-section{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--ink3);padding:4px 8px;margin-top:8px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:var(--r-sm);cursor:pointer;font-size:13px;font-weight:500;color:var(--ink2);transition:all 0.15s;border:none;background:none;width:100%;font-family:'Inter',sans-serif;text-align:left}
+.nav-item:hover{background:var(--surface2);color:var(--ink)}
+.nav-item.active{background:var(--accent-bg);color:var(--accent);font-weight:700}
+.nav-icon{font-size:15px;width:20px;text-align:center}
+
+/* MAIN */
+.main{padding:24px;overflow-y:auto;display:flex;flex-direction:column;gap:20px}
+
+/* CARDS */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:20px;display:flex;flex-direction:column;gap:14px}
+.card-title{font-family:'Syne',sans-serif;font-weight:700;font-size:16px;display:flex;align-items:center;gap:8px}
+.card-actions{margin-left:auto;display:flex;gap:7px}
+.page-section{display:none}
+.page-section.active{display:flex;flex-direction:column;gap:16px}
+
+/* STATS GRID */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+@media(max-width:900px){.stats-grid{grid-template-columns:repeat(2,1fr)}}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:6px}
+.stat-num{font-family:'Syne',sans-serif;font-weight:800;font-size:32px;line-height:1}
+.stat-label{font-size:12px;color:var(--ink3)}
+.stat-delta{font-size:11px;font-weight:700;padding:2px 7px;border-radius:100px}
+.delta-up{background:var(--green-bg);color:var(--green)}
+.delta-dn{background:#ffeaea;color:#c0392b}
+
+/* TABLE */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:9px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--ink3);border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--surface2)}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:100px;font-size:11px;font-weight:700;white-space:nowrap}
+.badge-free{background:var(--surface2);color:var(--ink3);border:1px solid var(--border)}
+.badge-starter{background:#fff8e8;color:#a07020;border:1px solid #ffe0a0}
+.badge-pro{background:rgba(124,58,237,0.1);color:#7c3aed;border:1px solid rgba(124,58,237,0.2)}
+.badge-admin{background:rgba(245,80,54,0.1);color:var(--accent);border:1px solid rgba(245,80,54,0.2)}
+.badge-active{background:var(--green-bg);color:var(--green);border:1px solid #b8e8cc}
+.user-cell{display:flex;align-items:center;gap:9px}
+.user-av{width:30px;height:30px;border-radius:50%;background:var(--surface2);border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.user-name{font-weight:600;font-size:13px}
+.user-email{font-size:11px;color:var(--ink3)}
+
+/* PLAN EDITOR */
+.plan-editor-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media(max-width:900px){.plan-editor-grid{grid-template-columns:1fr}}
+.plan-edit-card{background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:12px}
+.plan-edit-card.unsaved{border-color:var(--accent)}
+.plan-edit-header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.plan-edit-name{font-family:'Syne',sans-serif;font-weight:800;font-size:15px}
+.field-row{display:flex;flex-direction:column;gap:4px}
+.field-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:var(--ink3)}
+.field-input{padding:8px 11px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-size:13px;font-family:'Inter',sans-serif;background:var(--surface);color:var(--ink);outline:none;transition:border-color 0.15s;width:100%}
+.field-input:focus{border-color:var(--ink)}
+.field-input-sm{padding:6px 9px;font-size:12px}
+.features-list{display:flex;flex-direction:column;gap:5px}
+.feat-item{display:flex;align-items:center;gap:6px}
+.feat-item input{flex:1;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:'Inter',sans-serif;background:var(--surface);color:var(--ink);outline:none}
+.feat-item input:focus{border-color:var(--ink)}
+.feat-del{background:none;border:none;cursor:pointer;font-size:15px;color:var(--ink3);padding:2px;line-height:1;transition:color 0.15s}
+.feat-del:hover{color:var(--accent)}
+.add-feat-btn{display:flex;align-items:center;gap:5px;padding:5px 10px;background:none;border:1.5px dashed var(--border);border-radius:var(--r-sm);font-size:11px;font-weight:600;cursor:pointer;color:var(--ink3);font-family:'Inter',sans-serif;transition:all 0.15s;width:100%;justify-content:center}
+.add-feat-btn:hover{border-color:var(--ink);color:var(--ink)}
+.save-plan-btn{width:100%;padding:9px;background:var(--ink);color:#fff;border:none;border-radius:var(--r-sm);font-family:'Syne',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:6px}
+.save-plan-btn:hover{background:#333}
+.save-plan-btn:disabled{opacity:0.5;cursor:not-allowed}
+
+/* CREDIT MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);z-index:400;display:none;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border-radius:var(--r);padding:24px;width:100%;max-width:400px;display:flex;flex-direction:column;gap:16px;box-shadow:0 20px 60px rgba(0,0,0,0.2)}
+.modal-title{font-family:'Syne',sans-serif;font-weight:800;font-size:16px}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;padding:12px 18px;background:var(--ink);color:#fff;border-radius:var(--r-sm);font-size:13px;font-weight:600;z-index:1000;transform:translateY(100px);opacity:0;transition:all 0.3s;pointer-events:none;max-width:320px}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.success{background:#1a7a4a}
+.toast.error{background:#c0392b}
+
+.spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty-state{text-align:center;padding:30px;color:var(--ink3);font-size:13px}
+.page-title{font-family:'Syne',sans-serif;font-weight:800;font-size:22px}
+.page-sub{font-size:13px;color:var(--ink3);margin-top:2px}
+</style>
+</head>
+<body>
+
+<!-- AUTH MODAL -->
+<div class="auth-overlay" id="authModal">
+  <div class="auth-card">
+    <div class="auth-logo">🎠 Carousely</div>
+    <div class="auth-badge">🔐 Admin Panel</div>
+    <div>
+      <div class="auth-label">Email</div>
+      <input class="auth-input" type="email" id="authEmail" placeholder="admin@example.com">
+    </div>
+    <div>
+      <div class="auth-label">Пароль</div>
+      <input class="auth-input" type="password" id="authPass" placeholder="••••••••" onkeydown="if(event.key==='Enter')adminLogin()">
+    </div>
+    <div class="auth-err" id="authErr"></div>
+    <button class="auth-btn" id="authBtn" onclick="adminLogin()">Войти как администратор</button>
+  </div>
+</div>
+
+<!-- CREDIT GRANT MODAL -->
+<div class="modal-overlay" id="creditModal">
+  <div class="modal">
+    <div class="modal-title">⚡ Начислить кредиты</div>
+    <div id="creditModalUser" style="font-size:13px;color:var(--ink3)"></div>
+    <div class="field-row">
+      <div class="field-label">Количество кредитов</div>
+      <input class="field-input" type="number" id="creditAmount" value="10" min="1" max="10000">
+    </div>
+    <div class="field-row">
+      <div class="field-label">Причина</div>
+      <input class="field-input" type="text" id="creditReason" value="admin_grant" placeholder="admin_grant">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeCreditModal()">Отмена</button>
+      <button class="btn btn-primary" onclick="submitCreditGrant()">✓ Начислить</button>
+    </div>
+  </div>
+</div>
+
+<!-- PLAN MODAL -->
+<div class="modal-overlay" id="planModal">
+  <div class="modal">
+    <div class="modal-title">🔄 Сменить план</div>
+    <div id="planModalUser" style="font-size:13px;color:var(--ink3)"></div>
+    <div class="field-row">
+      <div class="field-label">Новый план</div>
+      <select class="field-input" id="planSelect">
+        <option value="free">Free</option>
+        <option value="starter">Starter</option>
+        <option value="pro">Pro</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closePlanModal()">Отмена</button>
+      <button class="btn btn-primary" onclick="submitPlanChange()">✓ Применить</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div style="display:none" id="appWrap">
+<div class="topbar">
+  <div class="brand"><div class="brand-icon">🎠</div>Carousely</div>
+  <div class="admin-badge">ADMIN</div>
+  <div class="topbar-right">
+    <button class="btn btn-ghost btn-sm" onclick="window.location='carousely-v26.html'">← Генератор</button>
+    <button class="btn btn-ghost btn-sm" onclick="window.location='carousely-profile.html'">Профиль</button>
+    <button class="logout-btn" onclick="adminLogout()">Выйти</button>
+  </div>
+</div>
+
+<div class="app" style="min-height:calc(100vh - 54px)">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="nav-section">Основное</div>
+    <button class="nav-item active" onclick="showSection('dashboard')" data-sec="dashboard"><span class="nav-icon">📊</span>Дэшборд</button>
+    <button class="nav-item" onclick="showSection('users')" data-sec="users"><span class="nav-icon">👥</span>Пользователи</button>
+    <button class="nav-item" onclick="showSection('plans')" data-sec="plans"><span class="nav-icon">💎</span>Тарифы</button>
+    <div class="nav-section">Аналитика</div>
+    <button class="nav-item" onclick="showSection('transactions')" data-sec="transactions"><span class="nav-icon">⚡</span>Кредиты</button>
+    <button class="nav-item" onclick="showSection('generations')" data-sec="generations"><span class="nav-icon">🎠</span>Генерации</button>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- DASHBOARD -->
+    <div class="page-section active" id="sec-dashboard">
+      <div>
+        <div class="page-title">Дэшборд</div>
+        <div class="page-sub">Общая статистика проекта</div>
+      </div>
+      <div class="stats-grid" id="statsGrid">
+        <div class="stat-card"><div class="spinner" style="border-color:var(--border);border-top-color:var(--ink)"></div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">📈 Последние регистрации</div>
+        <div id="recentUsers"><div class="empty-state"><div class="spinner" style="border-color:var(--border);border-top-color:var(--ink)"></div></div></div>
+      </div>
+    </div>
+
+    <!-- USERS -->
+    <div class="page-section" id="sec-users">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <div>
+          <div class="page-title">Пользователи</div>
+          <div class="page-sub" id="userCountSub">Загрузка…</div>
+        </div>
+        <input type="search" id="userSearch" placeholder="🔍 Поиск по email…" oninput="filterUsers(this.value)"
+          style="padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-size:13px;background:var(--surface);color:var(--ink);outline:none;width:220px;font-family:Inter,sans-serif">
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Пользователь</th><th>План</th><th>Кредиты</th><th>Генераций</th><th>Регистрация</th><th>Действия</th>
+            </tr></thead>
+            <tbody id="usersTable"><tr><td colspan="6" class="empty-state"><div class="spinner" style="border-color:var(--border);border-top-color:var(--ink);margin:0 auto"></div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- PLANS -->
+    <div class="page-section" id="sec-plans">
+      <div>
+        <div class="page-title">Тарифные планы</div>
+        <div class="page-sub">Управляй ценами, кредитами и фичами</div>
+      </div>
+      <div class="plan-editor-grid" id="planEditorGrid">
+        <div class="empty-state"><div class="spinner" style="border-color:var(--border);border-top-color:var(--ink)"></div></div>
+      </div>
+    </div>
+
+    <!-- SUBSCRIPTIONS -->
+    <div class="page-section" id="sec-subscriptions">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div>
+          <div class="page-title">Подписки lava.top</div>
+          <div class="page-sub">Активные и прошлые подписки пользователей</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <div id="subStats" style="display:flex;gap:12px"></div>
+          <button onclick="loadSubscriptions()" style="padding:7px 14px;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;font-family:Inter,sans-serif;color:var(--ink)">↺ Обновить</button>
+        </div>
+      </div>
+
+      <!-- Lava.top config block -->
+      <div class="card" style="background:linear-gradient(135deg,#0f0f1a,#1a0533);border-color:#2a1a4a">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px">
+          <div>
+            <div style="font-size:14px;font-weight:700;color:#fff">⚙️ Настройки lava.top</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px">Конфигурация платёжной интеграции</div>
+          </div>
+          <span style="font-size:10px;font-weight:700;padding:3px 10px;background:rgba(168,85,247,0.2);color:#c084fc;border-radius:100px;border:1px solid rgba(168,85,247,0.3)">LIVE</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,0.35);margin-bottom:5px">Webhook URL</div>
+            <div style="font-size:11px;font-family:monospace;background:rgba(255,255,255,0.07);padding:8px 10px;border-radius:7px;color:#a0f0b0;border:1px solid rgba(255,255,255,0.1)">
+              https://dktbugdwrvuqxymancxs.supabase.co/functions/v1/lava-webhook
+            </div>
+          </div>
+          <div>
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,0.35);margin-bottom:5px">Webhook Secret</div>
+            <div style="font-size:11px;font-family:monospace;background:rgba(255,255,255,0.07);padding:8px 10px;border-radius:7px;color:#a0f0b0;border:1px solid rgba(255,255,255,0.1)">
+              webhook-secret-carousely-2024
+            </div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
+          <div>
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,0.35);margin-bottom:5px">Starter Offer ID</div>
+            <div style="font-size:11px;font-family:monospace;background:rgba(255,255,255,0.07);padding:8px 10px;border-radius:7px;color:#c084fc;border:1px solid rgba(255,255,255,0.1)">
+              28c08325-403d-4a68-9e37-f9ee51c30966
+            </div>
+          </div>
+          <div>
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,0.35);margin-bottom:5px">Pro Offer ID</div>
+            <div style="font-size:11px;font-family:monospace;background:rgba(255,255,255,0.07);padding:8px 10px;border-radius:7px;color:#c084fc;border:1px solid rgba(255,255,255,0.1)">
+              79452a1f-9ba7-4b17-888e-b4f78607c2be
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Subscriptions table -->
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Пользователь</th>
+              <th>План</th>
+              <th>Статус</th>
+              <th>Offer ID</th>
+              <th>Начало</th>
+              <th>Истекает</th>
+              <th>Действия</th>
+            </tr></thead>
+            <tbody id="subsTable"><tr><td colspan="7" class="empty-state">Загрузка…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Pending payments -->
+      <div>
+        <div style="font-size:14px;font-weight:700;margin-bottom:10px">⏳ Pending платежи <span style="font-size:11px;color:var(--ink3);font-weight:400">(оплата без аккаунта)</span></div>
+        <div class="card">
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>Email</th><th>План</th><th>Order ID</th><th>Дата</th><th>Статус</th><th>Действия</th>
+              </tr></thead>
+              <tbody id="pendingTable"><tr><td colspan="6" class="empty-state">Загрузка…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TRANSACTIONS -->
+    <div class="page-section" id="sec-transactions">
+      <div>
+        <div class="page-title">Транзакции кредитов</div>
+        <div class="page-sub">История начислений и списаний</div>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Пользователь</th><th>Кредиты</th><th>Причина</th><th>Дата</th>
+            </tr></thead>
+            <tbody id="transTable"><tr><td colspan="4" class="empty-state">Загрузка…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- GENERATIONS -->
+    <div class="page-section" id="sec-generations">
+      <div>
+        <div class="page-title">Все генерации</div>
+        <div class="page-sub">История всех созданных каруселей</div>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Пользователь</th><th>Тема</th><th>Слайдов</th><th>Стиль</th><th>Кредиты</th><th>Дата</th>
+            </tr></thead>
+            <tbody id="gensTable"><tr><td colspan="6" class="empty-state">Загрузка…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app grid -->
+</div><!-- /appWrap -->
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://dktbugdwrvuqxymancxs.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRrdGJ1Z2R3cnZ1cXh5bWFuY3hzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIwOTM5MzQsImV4cCI6MjA4NzY2OTkzNH0.uncSowMM3Ra_5ZoXEDuc4pOJIqu7SAh52zCWYz7sMqY';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let adminUser = null;
+let allUsers = [];
+let allPlans = [];
+let selectedUserId = null;
+let planChangingUserId = null;
+
+// ── AUTH ─────────────────────────────────────────────────────────
+async function init() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    const { data: profile } = await sb.from('profiles').select('is_admin').eq('id', session.user.id).single();
+    if (profile?.is_admin) {
+      adminUser = session.user;
+      showApp();
+    } else {
+      document.getElementById('authErr').textContent = 'Нет прав администратора';
+      document.getElementById('authErr').classList.add('show');
+    }
+  }
+}
+
+async function adminLogin() {
+  const email = document.getElementById('authEmail').value.trim();
+  const pass  = document.getElementById('authPass').value;
+  const errEl = document.getElementById('authErr');
+  const btn   = document.getElementById('authBtn');
+  if (!email || !pass) { errEl.textContent='Заполни поля'; errEl.classList.add('show'); return; }
+
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  btn.disabled = false; btn.textContent = 'Войти как администратор';
+
+  if (error) { errEl.textContent = error.message; errEl.classList.add('show'); return; }
+
+  const { data: profile } = await sb.from('profiles').select('is_admin').eq('id', data.user.id).single();
+  if (!profile?.is_admin) {
+    await sb.auth.signOut();
+    errEl.textContent = '⛔ У тебя нет прав администратора. Обратись к владельцу проекта.';
+    errEl.classList.add('show');
+    return;
+  }
+  adminUser = data.user;
+  showApp();
+}
+
+async function adminLogout() {
+  await sb.auth.signOut();
+  location.reload();
+}
+
+function showApp() {
+  document.getElementById('authModal').style.display = 'none';
+  document.getElementById('appWrap').style.display = 'block';
+  loadAll();
+}
+
+// ── NAVIGATION ────────────────────────────────────────────────────
+function showSection(sec) {
+  document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('sec-' + sec).classList.add('active');
+  document.querySelector(`[data-sec="${sec}"]`).classList.add('active');
+}
+
+// ── LOAD ALL ──────────────────────────────────────────────────────
+async function loadAll() {
+  await Promise.all([loadPlans(), loadUsers(), loadDashboard(), loadTransactions(), loadGenerations(), loadSubscriptions()]);
+}
+
+// ── SUBSCRIPTIONS ────────────────────────────────────────────────
+async function loadSubscriptions() {
+  // Load subscriptions with user emails
+  const { data: subs } = await sb
+    .from('subscriptions')
+    .select('*, profiles(email, full_name)')
+    .order('created_at', { ascending: false })
+    .limit(100);
+
+  const tbody = document.getElementById('subsTable');
+  if (!subs || !subs.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Нет подписок</td></tr>';
+  } else {
+    // Stats
+    const active = subs.filter(s => s.status === 'active').length;
+    const statsEl = document.getElementById('subStats');
+    if (statsEl) {
+      const rev = subs.filter(s => s.status === 'active').reduce((acc, s) => {
+        return acc + (s.plan_id === 'pro' ? 2000 : s.plan_id === 'starter' ? 1000 : 0);
+      }, 0);
+      statsEl.innerHTML = `
+        <div style="padding:6px 12px;background:var(--green-bg);border-radius:8px;font-size:12px;font-weight:700;color:var(--green)">✓ ${active} активных</div>
+        <div style="padding:6px 12px;background:var(--surface2);border-radius:8px;font-size:12px;font-weight:700;color:var(--ink2)">₽${rev.toLocaleString('ru')}/мес</div>
+      `;
+    }
+
+    tbody.innerHTML = subs.map(s => {
+      const email = s.profiles?.email || s.profiles?.full_name || '—';
+      const expires = s.expires_at ? new Date(s.expires_at).toLocaleDateString('ru-RU') : '—';
+      const started = s.started_at ? new Date(s.started_at).toLocaleDateString('ru-RU') : '—';
+      const statusColor = s.status === 'active' ? 'var(--green)' : 'var(--ink3)';
+      const planBadge = s.plan_id === 'pro'
+        ? '<span style="background:#f5f0ff;color:#7c3aed;padding:2px 8px;border-radius:100px;font-size:10px;font-weight:700">Pro</span>'
+        : s.plan_id === 'starter'
+        ? '<span style="background:var(--surface2);color:var(--ink2);padding:2px 8px;border-radius:100px;font-size:10px;font-weight:700">Starter</span>'
+        : s.plan_id;
+      return `<tr>
+        <td style="font-weight:600">${email}</td>
+        <td>${planBadge}</td>
+        <td style="color:${statusColor};font-weight:600">${s.status}</td>
+        <td style="font-family:monospace;font-size:11px;color:var(--ink3)">${(s.offer_id||'—').slice(0,8)}…</td>
+        <td style="color:var(--ink3)">${started}</td>
+        <td style="color:var(--ink3)">${expires}</td>
+        <td>
+          <button onclick="cancelSubscription('${s.id}','${s.user_id}')"
+            style="padding:4px 10px;background:none;border:1.5px solid var(--border);border-radius:6px;font-size:11px;cursor:pointer;color:var(--ink3);font-family:Inter,sans-serif;transition:all 0.15s"
+            onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+            onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--ink3)'">
+            ✕ Отменить
+          </button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  // Load pending payments
+  const { data: pending } = await sb
+    .from('pending_payments')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  const pendingBody = document.getElementById('pendingTable');
+  if (!pending || !pending.length) {
+    pendingBody.innerHTML = '<tr><td colspan="6" class="empty-state">Нет pending платежей</td></tr>';
+  } else {
+    pendingBody.innerHTML = pending.map(p => `<tr>
+      <td style="font-weight:600">${p.email}</td>
+      <td>${p.plan_id}</td>
+      <td style="font-family:monospace;font-size:11px;color:var(--ink3)">${p.order_id||'—'}</td>
+      <td style="color:var(--ink3)">${new Date(p.created_at).toLocaleDateString('ru-RU')}</td>
+      <td style="font-weight:600;color:${p.applied ? 'var(--green)' : 'var(--accent)'}">${p.applied ? '✓ Применён' : '⏳ Ожидает'}</td>
+      <td>
+        ${!p.applied ? `<button onclick="applyPending('${p.id}')"
+          style="padding:4px 10px;background:var(--ink);color:#fff;border:none;border-radius:6px;font-size:11px;cursor:pointer;font-family:Inter,sans-serif">
+          Применить
+        </button>` : '—'}
+      </td>
+    </tr>`).join('');
+  }
+}
+
+async function cancelSubscription(subId, userId) {
+  if (!confirm('Отменить подписку? План пользователя вернётся на Free.')) return;
+  await sb.from('subscriptions').update({ status: 'cancelled' }).eq('id', subId);
+  await sb.from('profiles').update({ plan_id: 'free', credits: 10 }).eq('id', userId);
+  showToast('✓ Подписка отменена', 'success');
+  loadSubscriptions();
+  loadUsers();
+}
+
+async function applyPending(pendingId) {
+  const { data: p } = await sb.from('pending_payments').select('*').eq('id', pendingId).single();
+  if (!p) return;
+  // Find user by email
+  const { data: profile } = await sb.from('profiles').select('id').eq('email', p.email).single();
+  if (!profile) { showToast('Пользователь не найден: ' + p.email, 'error'); return; }
+  await sb.from('profiles').update({ plan_id: p.plan_id, credits: p.credits, plan_started_at: new Date().toISOString() }).eq('id', profile.id);
+  await sb.from('pending_payments').update({ applied: true }).eq('id', pendingId);
+  showToast('✓ Pending применён для ' + p.email, 'success');
+  loadSubscriptions();
+}
+
+async function loadPlans() {
+  const { data } = await sb.from('subscription_plans').select('*').order('sort_order');
+  allPlans = data || [];
+  renderPlanEditor(allPlans);
+}
+
+async function loadUsers() {
+  const { data } = await sb.from('profiles').select('*, generations(count)').order('created_at', {ascending: false});
+  allUsers = data || [];
+  document.getElementById('userCountSub').textContent = `${allUsers.length} пользователей всего`;
+  renderUsersTable(allUsers);
+}
+
+async function loadDashboard() {
+  const { data: users } = await sb.from('profiles').select('id, plan_id, created_at');
+  const { data: gens } = await sb.from('generations').select('id, credits_used, created_at');
+  const { data: txs } = await sb.from('credit_transactions').select('amount').gt('amount', 0);
+
+  const now = new Date();
+  const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const newThisMonth = (users||[]).filter(u => new Date(u.created_at) >= thisMonth).length;
+  const gensThisMonth = (gens||[]).filter(g => new Date(g.created_at) >= thisMonth).length;
+  const totalCreditsGiven = (txs||[]).reduce((s,t) => s + (t.amount||0), 0);
+  const planCounts = {};
+  (users||[]).forEach(u => { planCounts[u.plan_id] = (planCounts[u.plan_id]||0) + 1; });
+
+  document.getElementById('statsGrid').innerHTML = `
+    <div class="stat-card">
+      <div class="stat-num">${(users||[]).length}</div>
+      <div class="stat-label">Пользователей</div>
+      <span class="stat-delta delta-up">+${newThisMonth} этот мес.</span>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num">${(gens||[]).length}</div>
+      <div class="stat-label">Генераций всего</div>
+      <span class="stat-delta delta-up">+${gensThisMonth} этот мес.</span>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num">${planCounts['pro']||0}</div>
+      <div class="stat-label">Pro подписчиков</div>
+      <span class="stat-delta delta-up">${planCounts['starter']||0} Starter</span>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num">${totalCreditsGiven.toLocaleString()}</div>
+      <div class="stat-label">Кредитов выдано</div>
+      <span class="stat-delta delta-up">всего</span>
+    </div>`;
+
+  // Recent users
+  const recent = (users||[]).slice(0,5);
+  if (!recent.length) { document.getElementById('recentUsers').innerHTML = '<div class="empty-state">Нет пользователей</div>'; return; }
+  document.getElementById('recentUsers').innerHTML = `
+    <table class="gen-table" style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr>
+        <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--ink3);border-bottom:1px solid var(--border)">Email</th>
+        <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--ink3);border-bottom:1px solid var(--border)">План</th>
+        <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--ink3);border-bottom:1px solid var(--border)">Дата</th>
+      </tr></thead>
+      <tbody>
+        ${recent.map(u => `
+          <tr>
+            <td style="padding:9px 10px">${u.email||u.id.slice(0,8)}</td>
+            <td style="padding:9px 10px"><span class="badge badge-${u.plan_id}">${u.plan_id}</span></td>
+            <td style="padding:9px 10px;color:var(--ink3)">${new Date(u.created_at).toLocaleDateString('ru-RU')}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+async function loadTransactions() {
+  const { data } = await sb.from('credit_transactions').select('*, profiles(email)').order('created_at', {ascending: false}).limit(50);
+  const tbody = document.getElementById('transTable');
+  if (!data?.length) { tbody.innerHTML = '<tr><td colspan="4" class="empty-state">Нет транзакций</td></tr>'; return; }
+  tbody.innerHTML = data.map(t => `
+    <tr>
+      <td style="font-size:12px;color:var(--ink3)">${t.profiles?.email || t.user_id.slice(0,8)}</td>
+      <td><span style="font-weight:700;color:${t.amount>0?'var(--green)':'var(--accent)'}">${t.amount>0?'+':''}${t.amount}</span></td>
+      <td style="font-size:12px;color:var(--ink3)">${t.reason}</td>
+      <td style="font-size:12px;color:var(--ink3);white-space:nowrap">${new Date(t.created_at).toLocaleString('ru-RU')}</td>
+    </tr>`).join('');
+}
+
+async function loadGenerations() {
+  const { data } = await sb.from('generations').select('*, profiles(email)').order('created_at', {ascending: false}).limit(50);
+  const tbody = document.getElementById('gensTable');
+  if (!data?.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Нет генераций</td></tr>'; return; }
+  tbody.innerHTML = data.map(g => `
+    <tr>
+      <td style="font-size:12px;color:var(--ink3)">${g.profiles?.email || g.user_id.slice(0,8)}</td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${g.topic||'—'}</td>
+      <td>${g.slide_count||'—'}</td>
+      <td style="font-size:12px;color:var(--ink3)">${g.style||'—'}</td>
+      <td><span style="font-weight:700;color:var(--accent)">−${g.credits_used}</span></td>
+      <td style="font-size:12px;color:var(--ink3);white-space:nowrap">${new Date(g.created_at).toLocaleDateString('ru-RU')}</td>
+    </tr>`).join('');
+}
+
+// ── USERS TABLE ───────────────────────────────────────────────────
+function renderUsersTable(users) {
+  const tbody = document.getElementById('usersTable');
+  if (!users.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Нет пользователей</td></tr>'; return; }
+  tbody.innerHTML = users.map(u => `
+    <tr>
+      <td>
+        <div class="user-cell">
+          <div class="user-av">👤</div>
+          <div>
+            <div class="user-name">${u.full_name || 'Без имени'}</div>
+            <div class="user-email">${u.email || u.id.slice(0,8)}</div>
+          </div>
+        </div>
+      </td>
+      <td>
+        <span class="badge badge-${u.plan_id}">${u.plan_id}</span>
+        ${u.is_admin ? '<span class="badge badge-admin" style="margin-left:4px">admin</span>' : ''}
+      </td>
+      <td><strong>${u.credits}</strong></td>
+      <td>${u.generations?.[0]?.count ?? '—'}</td>
+      <td style="font-size:12px;color:var(--ink3);white-space:nowrap">${new Date(u.created_at).toLocaleDateString('ru-RU')}</td>
+      <td>
+        <div style="display:flex;gap:5px">
+          <button class="btn btn-success btn-sm" onclick="openCreditModal('${u.id}','${u.email||''}')">+Кредиты</button>
+          <button class="btn btn-ghost btn-sm" onclick="openPlanModal('${u.id}','${u.email||''}','${u.plan_id}')">План</button>
+          ${!u.is_admin ? `<button class="btn btn-danger btn-sm" onclick="toggleAdmin('${u.id}',true)" title="Дать права">🔐</button>` : `<button class="btn btn-ghost btn-sm" onclick="toggleAdmin('${u.id}',false)" title="Снять права">🔓</button>`}
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+function filterUsers(query) {
+  const q = query.toLowerCase();
+  const filtered = q ? allUsers.filter(u => (u.email||'').toLowerCase().includes(q) || (u.full_name||'').toLowerCase().includes(q)) : allUsers;
+  renderUsersTable(filtered);
+}
+
+// ── PLAN EDITOR ───────────────────────────────────────────────────
+function renderPlanEditor(plans) {
+  const grid = document.getElementById('planEditorGrid');
+  grid.innerHTML = plans.map(plan => {
+    const features = Array.isArray(plan.features) ? plan.features : JSON.parse(plan.features || '[]');
+    return `
+    <div class="plan-edit-card" id="plan-card-${plan.id}">
+      <div class="plan-edit-header">
+        <div class="plan-edit-name">${plan.name}</div>
+        <label style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;cursor:pointer">
+          <input type="checkbox" ${plan.is_active ? 'checked' : ''} onchange="markPlanUnsaved('${plan.id}')"> Активен
+        </label>
+      </div>
+
+      <div class="field-row">
+        <div class="field-label">Цена / мес ($)</div>
+        <input class="field-input field-input-sm" type="number" id="price-${plan.id}" value="${plan.price_month}" min="0" step="0.01" oninput="markPlanUnsaved('${plan.id}')">
+      </div>
+      <div class="field-row">
+        <div class="field-label">Кредитов в месяц</div>
+        <input class="field-input field-input-sm" type="number" id="credits-${plan.id}" value="${plan.credits_month}" min="0" oninput="markPlanUnsaved('${plan.id}')">
+      </div>
+      <div class="field-row">
+        <div class="field-label">Макс. слайдов</div>
+        <input class="field-input field-input-sm" type="number" id="maxslides-${plan.id}" value="${plan.max_slides}" min="1" max="20" oninput="markPlanUnsaved('${plan.id}')">
+      </div>
+      <div class="field-row">
+        <div class="field-label">Описание (показывается пользователям)</div>
+        <input class="field-input field-input-sm" type="text" id="desc-${plan.id}" value="${plan.description||''}" oninput="markPlanUnsaved('${plan.id}')">
+      </div>
+      <div class="field-row">
+        <div class="field-label">lava.top Offer ID</div>
+        <input class="field-input field-input-sm" type="text" id="offerid-${plan.id}" value="${plan.lava_offer_id||''}" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" oninput="markPlanUnsaved('${plan.id}')">
+      </div>
+      <div class="field-row">
+        <div class="field-label">Цена отображаемая (₽)</div>
+        <input class="field-input field-input-sm" type="text" id="priceLabel-${plan.id}" value="${plan.price_label||''}" placeholder="₽1 000/мес" oninput="markPlanUnsaved('${plan.id}')">
+      </div>
+      <div class="field-row">
+        <div class="field-label">Функции</div>
+        <div class="features-list" id="feats-${plan.id}">
+          ${features.map((f,i) => `
+            <div class="feat-item" id="feat-${plan.id}-${i}">
+              <input type="text" value="${f}" oninput="markPlanUnsaved('${plan.id}')">
+              <button class="feat-del" onclick="removeFeat('${plan.id}',${i})">✕</button>
+            </div>`).join('')}
+        </div>
+        <button class="add-feat-btn" onclick="addFeat('${plan.id}')">＋ Добавить функцию</button>
+      </div>
+      <button class="save-plan-btn" id="savebtn-${plan.id}" onclick="savePlan('${plan.id}')">💾 Сохранить план</button>
+    </div>`;
+  }).join('');
+}
+
+function markPlanUnsaved(planId) {
+  document.getElementById('plan-card-' + planId)?.classList.add('unsaved');
+}
+
+function addFeat(planId) {
+  const list = document.getElementById('feats-' + planId);
+  const idx = list.children.length;
+  const div = document.createElement('div');
+  div.className = 'feat-item';
+  div.id = `feat-${planId}-${idx}`;
+  div.innerHTML = `<input type="text" placeholder="Новая функция…" oninput="markPlanUnsaved('${planId}')"><button class="feat-del" onclick="removeFeat('${planId}',${idx})">✕</button>`;
+  list.appendChild(div);
+  markPlanUnsaved(planId);
+}
+
+function removeFeat(planId, idx) {
+  const el = document.getElementById(`feat-${planId}-${idx}`);
+  if (el) { el.remove(); markPlanUnsaved(planId); }
+}
+
+async function savePlan(planId) {
+  const btn = document.getElementById('savebtn-' + planId);
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Сохранение…';
+
+  const card = document.getElementById('plan-card-' + planId);
+  const isActive = card.querySelector('input[type=checkbox]').checked;
+  const price = parseFloat(document.getElementById('price-' + planId).value) || 0;
+  const credits = parseInt(document.getElementById('credits-' + planId).value) || 0;
+  const maxSlides = parseInt(document.getElementById('maxslides-' + planId).value) || 5;
+  const desc = document.getElementById('desc-' + planId).value.trim();
+  const featInputs = document.querySelectorAll(`#feats-${planId} input[type=text]`);
+  const features = Array.from(featInputs).map(i => i.value.trim()).filter(Boolean);
+
+  const offerId   = document.getElementById('offerid-'    + planId)?.value.trim() || null;
+  const priceLabel = document.getElementById('priceLabel-' + planId)?.value.trim() || null;
+
+  const { error } = await sb.from('subscription_plans').update({
+    price_month: price, credits_month: credits, max_slides: maxSlides,
+    description: desc, features: features, is_active: isActive,
+    lava_offer_id: offerId, price_label: priceLabel,
+  }).eq('id', planId);
+
+  btn.disabled = false; btn.textContent = '💾 Сохранить план';
+
+  if (error) { showToast('Ошибка: ' + error.message, 'error'); return; }
+  card.classList.remove('unsaved');
+  showToast('✓ План ' + planId + ' сохранён', 'success');
+  loadPlans();
+}
+
+// ── CREDIT MODAL ──────────────────────────────────────────────────
+function openCreditModal(userId, email) {
+  selectedUserId = userId;
+  document.getElementById('creditModalUser').textContent = email || userId;
+  document.getElementById('creditAmount').value = 10;
+  document.getElementById('creditReason').value = 'admin_grant';
+  document.getElementById('creditModal').classList.add('open');
+}
+
+function closeCreditModal() {
+  document.getElementById('creditModal').classList.remove('open');
+  selectedUserId = null;
+}
+
+async function submitCreditGrant() {
+  const amount = parseInt(document.getElementById('creditAmount').value);
+  const reason = document.getElementById('creditReason').value.trim() || 'admin_grant';
+  if (!selectedUserId || !amount) return;
+
+  const { error } = await sb.rpc('use_credits', {
+    p_user_id: selectedUserId, p_amount: -amount,
+    p_topic: 'admin_grant', p_slide_count: 0, p_style: '', p_size: ''
+  });
+
+  // Direct update since RPC deducts; instead do direct update
+  const { data: profile } = await sb.from('profiles').select('credits').eq('id', selectedUserId).single();
+  const newCredits = (profile?.credits || 0) + amount;
+  const { error: upErr } = await sb.from('profiles').update({ credits: newCredits }).eq('id', selectedUserId);
+  await sb.from('credit_transactions').insert({ user_id: selectedUserId, amount, reason });
+
+  closeCreditModal();
+  if (upErr) { showToast('Ошибка', 'error'); return; }
+  showToast(`✓ +${amount} кредитов начислено`, 'success');
+  loadUsers(); loadDashboard();
+}
+
+// ── PLAN MODAL ────────────────────────────────────────────────────
+function openPlanModal(userId, email, currentPlan) {
+  planChangingUserId = userId;
+  document.getElementById('planModalUser').textContent = email || userId;
+  document.getElementById('planSelect').value = currentPlan;
+  document.getElementById('planModal').classList.add('open');
+}
+
+function closePlanModal() {
+  document.getElementById('planModal').classList.remove('open');
+  planChangingUserId = null;
+}
+
+async function submitPlanChange() {
+  const newPlan = document.getElementById('planSelect').value;
+  if (!planChangingUserId) return;
+
+  const plan = allPlans.find(p => p.id === newPlan);
+  const { error } = await sb.from('profiles').update({
+    plan_id: newPlan,
+    credits: plan?.credits_month || 10
+  }).eq('id', planChangingUserId);
+
+  if (!error) {
+    await sb.from('credit_transactions').insert({
+      user_id: planChangingUserId, amount: plan?.credits_month || 0, reason: 'plan_upgrade'
+    });
+  }
+
+  closePlanModal();
+  if (error) { showToast('Ошибка', 'error'); return; }
+  showToast(`✓ План изменён на ${newPlan}`, 'success');
+  loadUsers();
+}
+
+async function toggleAdmin(userId, makeAdmin) {
+  if (!confirm(makeAdmin ? 'Дать права администратора?' : 'Снять права администратора?')) return;
+  const { error } = await sb.from('profiles').update({ is_admin: makeAdmin }).eq('id', userId);
+  if (error) { showToast('Ошибка', 'error'); return; }
+  showToast(makeAdmin ? '✓ Права администратора выданы' : '✓ Права сняты', 'success');
+  loadUsers();
+}
+
+// ── TOAST ────────────────────────────────────────────────────────
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + type;
+  setTimeout(() => t.className = 'toast', 3500);
+}
+
+(function(){
+  const saved = localStorage.getItem('carousely_theme');
+  if (saved === 'dark') document.documentElement.setAttribute('data-theme','dark');
+})();
+
+init();
+</script>
+</body>
+</html>

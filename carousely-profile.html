@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Carousely — Профиль</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f0ede7;--surface:#fff;--surface2:#e8e4dd;
+  --border:#d8d4cc;--ink:#111;--ink2:#555;--ink3:#999;
+  --accent:#f55036;--accent-bg:#fff1ee;
+  --green:#1a7a4a;--green-bg:#e8f5ee;
+  --r:14px;--r-sm:10px;
+  --shadow:0 2px 12px rgba(0,0,0,0.06);
+}
+[data-theme="dark"]{
+  --bg:#0f0f13;--surface:#1a1a22;--surface2:#22222e;
+  --border:#2e2e3e;--ink:#f0eeff;--ink2:#9090b0;--ink3:#55556a;
+  --accent:#f55036;--accent-bg:#2a1510;
+  --green:#4ade80;--green-bg:#0d2218;
+  --shadow:0 2px 12px rgba(0,0,0,0.3);
+}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;font-size:14px;line-height:1.6}
+
+/* TOPBAR */
+.topbar{height:54px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:12px;position:sticky;top:0;z-index:100}
+.brand{font-family:'Syne',sans-serif;font-weight:800;font-size:18px;display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--ink)}
+.brand-icon{width:28px;height:28px;background:var(--ink);border-radius:7px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.btn{padding:7px 14px;border-radius:var(--r-sm);font-size:12px;font-weight:700;cursor:pointer;border:none;font-family:'Inter',sans-serif;transition:all 0.15s}
+.btn-ghost{background:var(--surface2);color:var(--ink2);border:1.5px solid var(--border)}
+.btn-ghost:hover{border-color:var(--ink);color:var(--ink)}
+.btn-primary{background:var(--ink);color:#fff}
+.btn-primary:hover{background:#333}
+.btn-accent{background:var(--accent);color:#fff}
+.btn-accent:hover{opacity:0.9}
+.btn-sm{padding:5px 11px;font-size:11px}
+
+/* PAGE */
+.page{max-width:900px;margin:0 auto;padding:30px 20px;display:flex;flex-direction:column;gap:24px}
+
+/* AUTH MODAL */
+.auth-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(8px);z-index:500;display:flex;align-items:center;justify-content:center}
+.auth-card{background:var(--surface);border-radius:var(--r);padding:32px;width:100%;max-width:400px;display:flex;flex-direction:column;gap:20px;box-shadow:0 20px 60px rgba(0,0,0,0.2)}
+.auth-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:22px;text-align:center}
+.auth-title{font-family:'Syne',sans-serif;font-weight:700;font-size:18px;text-align:center}
+.auth-sub{font-size:13px;color:var(--ink3);text-align:center;margin-top:-12px}
+.auth-tabs{display:flex;gap:4px;background:var(--bg);border-radius:var(--r-sm);padding:3px}
+.auth-tab{flex:1;padding:7px;text-align:center;font-size:13px;font-weight:700;cursor:pointer;border-radius:8px;border:none;background:none;font-family:'Inter',sans-serif;color:var(--ink3);transition:all 0.15s}
+.auth-tab.active{background:var(--surface);color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,0.08)}
+.auth-field{display:flex;flex-direction:column;gap:5px}
+.auth-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--ink3)}
+.auth-input{padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-size:13px;font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);outline:none;transition:border-color 0.15s}
+.auth-input:focus{border-color:var(--ink)}
+.auth-err{font-size:12px;color:#c0392b;padding:8px 12px;background:#ffeaea;border-radius:var(--r-sm);display:none}
+.auth-err.show{display:block}
+.auth-btn{width:100%;padding:12px;background:var(--ink);color:#fff;border:none;border-radius:var(--r-sm);font-family:'Syne',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.2s}
+.auth-btn:hover{background:#333}
+.auth-btn:disabled{opacity:0.5;cursor:not-allowed}
+
+/* CARDS */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:22px;display:flex;flex-direction:column;gap:16px}
+.card-title{font-family:'Syne',sans-serif;font-weight:700;font-size:16px;display:flex;align-items:center;gap:8px}
+.section-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:640px){.section-grid{grid-template-columns:1fr}}
+
+/* PROFILE HEADER */
+.profile-header{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.avatar{width:64px;height:64px;border-radius:50%;background:var(--surface2);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;overflow:hidden}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.profile-info{flex:1}
+.profile-name{font-family:'Syne',sans-serif;font-weight:800;font-size:20px}
+.profile-email{font-size:13px;color:var(--ink3)}
+.plan-badge-lg{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:100px;font-size:11px;font-weight:700;margin-top:4px}
+.plan-free{background:var(--surface2);color:var(--ink3);border:1px solid var(--border)}
+.plan-starter{background:#fff8e8;color:#a07020;border:1px solid #ffe0a0}
+.plan-pro{background:linear-gradient(135deg,rgba(124,58,237,0.1),rgba(168,85,247,0.1));color:#7c3aed;border:1px solid rgba(124,58,237,0.3)}
+
+/* CREDITS */
+.credits-display{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.credit-main{display:flex;flex-direction:column}
+.credit-num{font-family:'Syne',sans-serif;font-weight:800;font-size:42px;line-height:1;color:var(--ink)}
+.credit-label{font-size:12px;color:var(--ink3)}
+.credit-bar-wrap{flex:1;min-width:160px}
+.credit-bar{height:8px;background:var(--surface2);border-radius:100px;overflow:hidden;margin-bottom:5px}
+.credit-fill{height:100%;border-radius:100px;background:var(--accent);transition:width 0.5s ease}
+.credit-fill.ok{background:var(--green)}
+.credit-fill.low{background:var(--accent)}
+.credit-meta{font-size:11px;color:var(--ink3)}
+.credit-reset{font-size:11px;color:var(--ink3);margin-top:4px}
+
+/* PLAN CARDS */
+.plans-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media(max-width:640px){.plans-grid{grid-template-columns:1fr}}
+.plan-card{border:2px solid var(--border);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:10px;transition:all 0.2s;position:relative}
+.plan-card.current{border-color:var(--accent);background:var(--accent-bg)}
+.plan-card.popular{border-color:#7c3aed}
+.plan-card-badge{position:absolute;top:-10px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;padding:2px 10px;border-radius:100px;background:#7c3aed;color:#fff;white-space:nowrap}
+.plan-name{font-family:'Syne',sans-serif;font-weight:800;font-size:16px}
+.plan-price{font-family:'Syne',sans-serif;font-weight:800;font-size:28px;line-height:1}
+.plan-price span{font-size:13px;font-weight:500;color:var(--ink3)}
+.plan-desc{font-size:12px;color:var(--ink3)}
+.plan-features{display:flex;flex-direction:column;gap:5px;flex:1}
+.plan-feat{font-size:12px;display:flex;align-items:center;gap:5px}
+.plan-feat::before{content:'✓';color:var(--green);font-weight:700;flex-shrink:0}
+.plan-btn{width:100%;padding:9px;border-radius:var(--r-sm);font-family:'Syne',sans-serif;font-size:12px;font-weight:700;cursor:pointer;border:none;transition:all 0.15s;margin-top:4px}
+.plan-btn-active{background:var(--surface2);color:var(--ink3);cursor:default}
+.plan-btn-upgrade{background:var(--ink);color:#fff}
+.plan-btn-upgrade:hover{background:#333}
+.plan-btn-pro{background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff}
+.plan-btn-pro:hover{opacity:0.9}
+
+/* FIELDS */
+.field-row{display:flex;flex-direction:column;gap:5px}
+.field-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--ink3)}
+.field-input{padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-size:13px;font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);outline:none;transition:border-color 0.15s;width:100%}
+.field-input:focus{border-color:var(--ink)}
+.field-input[type="password"]{font-family:monospace;font-size:12px}
+
+/* HISTORY TABLE */
+.gen-table{width:100%;border-collapse:collapse;font-size:12px}
+.gen-table th{text-align:left;padding:8px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--ink3);border-bottom:1px solid var(--border)}
+.gen-table td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+.gen-table tr:last-child td{border-bottom:none}
+.gen-table tr:hover td{background:var(--surface2)}
+.credits-chip{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:100px;font-size:11px;font-weight:700;background:var(--accent-bg);color:var(--accent)}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;padding:12px 18px;background:var(--ink);color:#fff;border-radius:var(--r-sm);font-size:13px;font-weight:600;z-index:1000;transform:translateY(100px);opacity:0;transition:all 0.3s;pointer-events:none}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.success{background:#1a7a4a}
+.toast.error{background:#c0392b}
+
+/* LOADING */
+.spinner{width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--ink);border-radius:50%;animation:spin 0.7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.empty-state{text-align:center;padding:30px;color:var(--ink3);font-size:13px}
+.logout-btn{background:none;border:1.5px solid var(--border);border-radius:var(--r-sm);padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;color:var(--ink3);font-family:'Inter',sans-serif;transition:all 0.15s}
+.logout-btn:hover{border-color:#c0392b;color:#c0392b}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <a class="brand" href="carousely-v26.html">
+    <div class="brand-icon">🎠</div>
+    Carousely
+  </a>
+  <div class="topbar-right">
+    <button class="btn btn-ghost btn-sm" onclick="window.location='carousely-v26.html'">← Генератор</button>
+    <button class="logout-btn" id="logoutBtn" onclick="logout()" style="display:none">Выйти</button>
+  </div>
+</div>
+
+<!-- AUTH MODAL -->
+<div class="auth-overlay" id="authModal">
+  <div class="auth-card">
+    <div class="auth-logo">🎠 Carousely</div>
+    <div>
+      <div class="auth-title">Вход в аккаунт</div>
+      <div class="auth-sub">Управляй кредитами и подпиской</div>
+    </div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchAuthTab('login')">Войти</button>
+      <button class="auth-tab" onclick="switchAuthTab('register')">Регистрация</button>
+    </div>
+    <div id="authErr" class="auth-err"></div>
+    <div id="authNameField" class="auth-field" style="display:none">
+      <div class="auth-label">Имя</div>
+      <input class="auth-input" type="text" id="authName" placeholder="Твоё имя…">
+    </div>
+    <div class="auth-field">
+      <div class="auth-label">Email</div>
+      <input class="auth-input" type="email" id="authEmail" placeholder="you@example.com">
+    </div>
+    <div class="auth-field">
+      <div class="auth-label">Пароль</div>
+      <input class="auth-input" type="password" id="authPass" placeholder="••••••••" onkeydown="if(event.key==='Enter')submitAuth()">
+    </div>
+    <button class="auth-btn" id="authSubmitBtn" onclick="submitAuth()">Войти</button>
+  </div>
+</div>
+
+<!-- PAGE CONTENT -->
+<div class="page" id="pageContent" style="display:none">
+
+  <!-- PROFILE HEADER -->
+  <div class="card">
+    <div class="profile-header">
+      <div class="avatar" id="avatarEl">👤</div>
+      <div class="profile-info">
+        <div class="profile-name" id="profileName">—</div>
+        <div class="profile-email" id="profileEmail">—</div>
+        <div class="plan-badge-lg plan-free" id="planBadge">Free</div>
+        <div id="planExpiryInfo" style="display:none;flex-direction:column;gap:2px;margin-top:4px;font-size:12px"></div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="showEditProfile()">✏️ Редактировать</button>
+    </div>
+  </div>
+
+  <!-- CREDITS + STATS -->
+  <div class="section-grid">
+    <div class="card">
+      <div class="card-title">⚡ Кредиты</div>
+      <div class="credits-display">
+        <div class="credit-main">
+          <div class="credit-num" id="creditsNum">—</div>
+          <div class="credit-label">из <span id="creditsMax">—</span></div>
+        </div>
+        <div class="credit-bar-wrap">
+          <div class="credit-bar"><div class="credit-fill" id="creditFill" style="width:0%"></div></div>
+          <div class="credit-meta" id="creditMeta">Загрузка…</div>
+          <div class="credit-reset" id="creditReset"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">📊 Статистика</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:13px;color:var(--ink2)">Генераций всего</span>
+          <span style="font-family:Syne,sans-serif;font-weight:800;font-size:18px" id="statTotal">—</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:13px;color:var(--ink2)">В этом месяце</span>
+          <span style="font-family:Syne,sans-serif;font-weight:800;font-size:18px" id="statMonth">—</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:13px;color:var(--ink2)">Слайдов создано</span>
+          <span style="font-family:Syne,sans-serif;font-weight:800;font-size:18px" id="statSlides">—</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PLANS -->
+  <div class="card">
+    <div class="card-title">💎 Тарифные планы</div>
+    <div class="plans-grid" id="plansGrid">
+      <div class="empty-state"><div class="spinner"></div></div>
+    </div>
+  </div>
+
+  <!-- API KEYS — скрыто, ключи хранятся на сервере -->
+  <div class="card" style="display:none">
+    <div class="card-title">🔑 API Ключи</div>
+    <div class="section-grid">
+      <div class="field-row">
+        <div class="field-label">Mistral API Key</div>
+        <input class="field-input" type="password" id="mistralKey" placeholder="Вставь ключ Mistral…">
+      </div>
+      <div class="field-row">
+        <div class="field-label">Leonardo API Key</div>
+        <input class="field-input" type="password" id="leoKey" placeholder="Вставь ключ Leonardo…">
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end">
+      <button class="btn btn-primary btn-sm" onclick="saveApiKeys()">💾 Сохранить ключи</button>
+    </div>
+    <div style="font-size:11px;color:var(--ink3);padding:8px 12px;background:var(--surface2);border-radius:var(--r-sm)">
+      🔒 Ключи хранятся в зашифрованном виде. Никогда не передаются третьим лицам.
+    </div>
+  </div>
+
+  <!-- BRANDING -->
+  <div class="card">
+    <div class="card-title">🎨 Брендинг</div>
+    <div class="section-grid">
+      <div class="field-row">
+        <div class="field-label">Название бренда</div>
+        <input class="field-input" type="text" id="brandName" placeholder="My Brand">
+      </div>
+      <div class="field-row">
+        <div class="field-label">Handle</div>
+        <input class="field-input" type="text" id="brandHandle" placeholder="@yourbrand">
+      </div>
+    </div>
+    <div class="field-row" style="max-width:200px">
+      <div class="field-label">Цвет акцента</div>
+      <input class="field-input" type="color" id="brandColor" value="#e8ff47" style="height:42px;padding:4px 8px;cursor:pointer">
+    </div>
+    <div style="display:flex;justify-content:flex-end">
+      <button class="btn btn-primary btn-sm" onclick="saveBranding()">💾 Сохранить бренд</button>
+    </div>
+  </div>
+
+  <!-- GENERATION HISTORY -->
+  <div class="card">
+    <div class="card-title">📁 История генераций</div>
+    <div id="historyWrap">
+      <div class="empty-state"><div class="spinner"></div></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://dktbugdwrvuqxymancxs.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRrdGJ1Z2R3cnZ1cXh5bWFuY3hzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIwOTM5MzQsImV4cCI6MjA4NzY2OTkzNH0.uncSowMM3Ra_5ZoXEDuc4pOJIqu7SAh52zCWYz7sMqY';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true, storageKey: 'carousely_auth' }
+});
+
+let currentUser = null;
+let currentProfile = null;
+let currentPlan = null;
+let allPlans = [];
+let authMode = 'login';
+
+// ── AUTH ─────────────────────────────────────────────────────────
+async function init() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    currentUser = session.user;
+    await loadProfile();
+  } else {
+    document.getElementById('authModal').style.display = 'flex';
+  }
+  sb.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN' && session) {
+      currentUser = session.user;
+      await loadProfile();
+    } else if (event === 'SIGNED_OUT') {
+      currentUser = null;
+      document.getElementById('authModal').style.display = 'flex';
+      document.getElementById('pageContent').style.display = 'none';
+      document.getElementById('logoutBtn').style.display = 'none';
+    }
+  });
+}
+
+function switchAuthTab(mode) {
+  authMode = mode;
+  document.querySelectorAll('.auth-tab').forEach((t,i)=>t.classList.toggle('active', (mode==='login'?0:1)===i));
+  document.getElementById('authNameField').style.display = mode === 'register' ? 'flex' : 'none';
+  document.getElementById('authSubmitBtn').textContent = mode === 'login' ? 'Войти' : 'Зарегистрироваться';
+  document.getElementById('authErr').classList.remove('show');
+}
+
+async function submitAuth() {
+  const email = document.getElementById('authEmail').value.trim();
+  const pass  = document.getElementById('authPass').value;
+  const name  = document.getElementById('authName').value.trim();
+  const errEl = document.getElementById('authErr');
+  const btn   = document.getElementById('authSubmitBtn');
+
+  if (!email || !pass) { showErr(errEl, 'Заполни email и пароль'); return; }
+
+  btn.disabled = true;
+  btn.textContent = '...';
+  errEl.classList.remove('show');
+
+  let result;
+  if (authMode === 'login') {
+    result = await sb.auth.signInWithPassword({ email, password: pass });
+  } else {
+    result = await sb.auth.signUp({ email, password: pass, options: { data: { full_name: name } } });
+  }
+
+  btn.disabled = false;
+  btn.textContent = authMode === 'login' ? 'Войти' : 'Зарегистрироваться';
+
+  if (result.error) {
+    showErr(errEl, result.error.message);
+    return;
+  }
+  if (authMode === 'register' && !result.data.session) {
+    showErr(errEl, '✅ Проверь почту — мы выслали ссылку для подтверждения');
+    errEl.style.background = '#e8f5ee';
+    errEl.style.color = '#1a7a4a';
+  }
+}
+
+function showErr(el, msg) { el.textContent = msg; el.classList.add('show'); }
+
+async function logout() {
+  await sb.auth.signOut();
+  showToast('Вышли из аккаунта');
+}
+
+// ── LOAD PROFILE ─────────────────────────────────────────────────
+async function loadProfile() {
+  document.getElementById('authModal').style.display = 'none';
+  document.getElementById('pageContent').style.display = 'flex';
+  document.getElementById('logoutBtn').style.display = 'block';
+
+  // Load plans
+  const { data: plans } = await sb.from('subscription_plans').select('*').eq('is_active', true).order('sort_order');
+  allPlans = plans || [];
+
+  // Load profile
+  const { data: profile } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+  if (!profile) {
+    // Профиль ещё не создан триггером — подождём и попробуем снова
+    console.warn('Profile not found, retrying in 1.5s...');
+    setTimeout(loadProfile, 1500);
+    return;
+  }
+  currentProfile = profile;
+  currentPlan = allPlans.find(p => p.id === profile.plan_id) || allPlans[0];
+
+  renderHeader(profile);
+  renderCredits(profile);
+  renderPlans(profile, allPlans);
+  renderApiKeys(profile);
+  renderBranding(profile);
+  try { await loadStats(); } catch(e) { console.warn('loadStats error:', e); }
+  try { await loadHistory(); } catch(e) { console.warn('loadHistory error:', e); }
+}
+
+function renderHeader(p) {
+  document.getElementById('profileName').textContent = p.full_name || p.email?.split('@')[0] || 'Пользователь';
+  document.getElementById('profileEmail').textContent = p.email || '';
+  const badge = document.getElementById('planBadge');
+  badge.textContent = currentPlan?.name || 'Free';
+  badge.className = 'plan-badge-lg plan-' + (p.plan_id || 'free');
+  renderPlanExpiry(p);
+}
+
+function renderPlanExpiry(p) {
+  // Показываем дату истечения если есть
+  const expiryEl = document.getElementById('planExpiryInfo');
+  if (!expiryEl) return;
+  if (p.plan_expires_at && p.plan_id !== 'free') {
+    const d = new Date(p.plan_expires_at);
+    const now = new Date();
+    const daysLeft = Math.ceil((d - now) / (1000 * 60 * 60 * 24));
+    expiryEl.style.display = 'flex';
+    expiryEl.innerHTML = daysLeft > 0
+      ? `<span style="color:var(--green)">✓ Активен до ${d.toLocaleDateString('ru-RU')}</span><span style="color:var(--ink3);font-size:11px">${daysLeft} дн. осталось</span>`
+      : `<span style="color:var(--accent)">⚠ Истёк ${d.toLocaleDateString('ru-RU')}</span>`;
+  } else {
+    if (expiryEl) expiryEl.style.display = 'none';
+  }
+}
+
+function renderCredits(p) {
+  const max = currentPlan?.credits_month || 10;
+  const cur = p.credits || 0;
+  const pct = Math.min(100, Math.round((cur / max) * 100));
+
+  document.getElementById('creditsNum').textContent = cur;
+  document.getElementById('creditsMax').textContent = max;
+  document.getElementById('creditMeta').textContent = `${pct}% осталось`;
+
+  const fill = document.getElementById('creditFill');
+  fill.style.width = pct + '%';
+  fill.className = 'credit-fill ' + (pct > 30 ? 'ok' : 'low');
+
+  const resetDate = new Date(p.credits_reset_at);
+  document.getElementById('creditReset').textContent =
+    `Сброс: ${resetDate.toLocaleDateString('ru-RU', {day:'numeric',month:'long'})}`;
+}
+
+function renderPlans(profile, plans) {
+  const grid = document.getElementById('plansGrid');
+  if (!plans.length) { grid.innerHTML = '<div class="empty-state">Нет планов</div>'; return; }
+
+  grid.innerHTML = plans.map(plan => {
+    const isCurrent = plan.id === profile.plan_id;
+    const isPro = plan.id === 'pro';
+    const isStarter = plan.id === 'starter';
+    const price = parseFloat(plan.price_month);
+    const features = Array.isArray(plan.features) ? plan.features : JSON.parse(plan.features || '[]');
+
+    return `
+    <div class="plan-card ${isCurrent ? 'current' : ''} ${isPro ? 'popular' : ''}">
+      ${isPro ? '<div class="plan-card-badge">🔥 Популярный</div>' : ''}
+      <div class="plan-name">${plan.name}</div>
+      <div class="plan-price">${plan.price_label || (price === 0 ? 'Бесплатно' : '₽' + plan.price_month)}<span>${price > 0 && !plan.price_label ? '/мес' : ''}</span></div>
+      <div class="plan-desc">${plan.description}</div>
+      <div class="plan-features">
+        ${features.map(f => `<div class="plan-feat">${f}</div>`).join('')}
+      </div>
+      ${isCurrent
+        ? `<button class="plan-btn plan-btn-active" disabled>✓ Текущий план</button>`
+        : `<button class="plan-btn ${isPro ? 'plan-btn-pro' : 'plan-btn-upgrade'}" onclick="openLavaPayProfile('${plan.id}', '${plan.lava_offer_id||''}')">
+             ${isPro ? '✨ Перейти на Pro' : '💳 Выбрать ' + plan.name}
+           </button>`
+      }
+    </div>`;
+  }).join('');
+}
+
+function renderApiKeys(p) {
+  if (p.mistral_api_key) document.getElementById('mistralKey').value = p.mistral_api_key;
+  if (p.leo_api_key) document.getElementById('leoKey').value = p.leo_api_key;
+}
+
+function renderBranding(p) {
+  if (p.brand_name) document.getElementById('brandName').value = p.brand_name;
+  if (p.brand_handle) document.getElementById('brandHandle').value = p.brand_handle;
+  if (p.brand_color) document.getElementById('brandColor').value = p.brand_color;
+}
+
+async function loadStats() {
+  const startOfMonth = new Date(); startOfMonth.setDate(1); startOfMonth.setHours(0,0,0,0);
+
+  const { data: all } = await sb.from('generations').select('id, slide_count').eq('user_id', currentUser.id);
+  const { data: month } = await sb.from('generations').select('id').eq('user_id', currentUser.id).gte('created_at', startOfMonth.toISOString());
+
+  const totalSlides = (all || []).reduce((s, g) => s + (g.slide_count || 0), 0);
+  document.getElementById('statTotal').textContent = (all || []).length;
+  document.getElementById('statMonth').textContent = (month || []).length;
+  document.getElementById('statSlides').textContent = totalSlides;
+}
+
+async function loadHistory() {
+  const { data: gens } = await sb.from('generations').select('*').eq('user_id', currentUser.id).order('created_at', {ascending: false}).limit(20);
+  const wrap = document.getElementById('historyWrap');
+
+  if (!gens || !gens.length) {
+    wrap.innerHTML = '<div class="empty-state">Нет генераций. Создай свою первую карусель!</div>';
+    return;
+  }
+
+  wrap.innerHTML = `
+  <table class="gen-table">
+    <thead><tr>
+      <th>Тема</th><th>Слайдов</th><th>Стиль</th><th>Кредиты</th><th>Дата</th>
+    </tr></thead>
+    <tbody>
+      ${gens.map(g => `
+        <tr>
+          <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${g.topic || '—'}</td>
+          <td>${g.slide_count || '—'}</td>
+          <td style="color:var(--ink3)">${g.style || '—'}</td>
+          <td><span class="credits-chip">−${g.credits_used}</span></td>
+          <td style="color:var(--ink3);white-space:nowrap">${new Date(g.created_at).toLocaleDateString('ru-RU')}</td>
+        </tr>`).join('')}
+    </tbody>
+  </table>`;
+}
+
+// ── ACTIONS ──────────────────────────────────────────────────────
+async function saveApiKeys() {
+  const mistral = document.getElementById('mistralKey').value.trim();
+  const leo = document.getElementById('leoKey').value.trim();
+  const { error } = await sb.from('profiles').update({ mistral_api_key: mistral || null, leo_api_key: leo || null }).eq('id', currentUser.id);
+  if (error) showToast('Ошибка сохранения', 'error');
+  else showToast('✓ Ключи сохранены', 'success');
+}
+
+async function saveBranding() {
+  const name = document.getElementById('brandName').value.trim();
+  const handle = document.getElementById('brandHandle').value.trim();
+  const color = document.getElementById('brandColor').value;
+  const { error } = await sb.from('profiles').update({ brand_name: name, brand_handle: handle, brand_color: color }).eq('id', currentUser.id);
+  if (error) showToast('Ошибка сохранения', 'error');
+  else showToast('✓ Брендинг сохранён', 'success');
+}
+
+function openLavaPayProfile(planId, offerId) {
+  // Базовые URL по offer ID
+  const offerUrls = {
+    '28c08325-403d-4a68-9e37-f9ee51c30966': 'https://app.lava.top/products/9c0b1c5c-d584-4126-a441-4b43720a0567/28c08325-403d-4a68-9e37-f9ee51c30966',
+    '79452a1f-9ba7-4b17-888e-b4f78607c2be': 'https://app.lava.top/products/9c0b1c5c-d584-4126-a441-4b43720a0567/79452a1f-9ba7-4b17-888e-b4f78607c2be',
+  };
+
+  // Fallback по planId
+  const planUrls = {
+    starter: 'https://app.lava.top/products/9c0b1c5c-d584-4126-a441-4b43720a0567/28c08325-403d-4a68-9e37-f9ee51c30966',
+    pro:     'https://app.lava.top/products/9c0b1c5c-d584-4126-a441-4b43720a0567/79452a1f-9ba7-4b17-888e-b4f78607c2be',
+  };
+
+  let url = offerUrls[offerId] || planUrls[planId];
+  if (!url) { showToast('Ссылка на оплату не настроена. Обратись к администратору.', 'error'); return; }
+
+  // Подставляем email
+  if (currentUser?.email) url += '?email=' + encodeURIComponent(currentUser.email);
+
+  window.open(url, '_blank');
+  showToast('💳 Страница оплаты открыта. После оплаты обнови страницу — план активируется автоматически.', 'success');
+
+  // Polling — проверяем обновление плана каждые 10 сек
+  let pollCount = 0;
+  const poll = setInterval(async () => {
+    pollCount++;
+    if (pollCount > 18 || !currentUser) { clearInterval(poll); return; } // 3 минуты
+    try {
+      const { data } = await sb.from('profiles').select('plan_id, credits, plan_expires_at').eq('id', currentUser.id).single();
+      if (data && data.plan_id !== 'free' && data.plan_id !== currentProfile?.plan_id) {
+        clearInterval(poll);
+        currentProfile = { ...currentProfile, ...data };
+        renderProfile(currentProfile);
+        showToast('🎉 План ' + (data.plan_id === 'pro' ? 'Pro' : 'Starter') + ' активирован! ' + data.credits + ' кредитов.', 'success');
+      }
+    } catch(e) {}
+  }, 10000);
+}
+
+function showEditProfile() {
+  const name = prompt('Твоё имя:', currentProfile?.full_name || '');
+  if (name === null) return;
+  sb.from('profiles').update({ full_name: name }).eq('id', currentUser.id).then(({ error }) => {
+    if (!error) { document.getElementById('profileName').textContent = name; showToast('✓ Имя обновлено', 'success'); }
+  });
+}
+
+// ── TOAST ────────────────────────────────────────────────────────
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + type;
+  setTimeout(() => t.className = 'toast', 3000);
+}
+
+// ── DARK MODE SYNC ───────────────────────────────────────────────
+(function(){
+  const saved = localStorage.getItem('carousely_theme');
+  if (saved === 'dark') document.documentElement.setAttribute('data-theme','dark');
+})();
+
+init();
+</script>
+</body>
+</html>
